@@ -1,4 +1,14 @@
 from fastapi import FastAPI
 
+from app.api.health import router as health_router
+from app.core.errors import register_exception_handlers
 
-app = FastAPI(title="CRM Geral", version="0.1.0")
+
+def create_app() -> FastAPI:
+    application = FastAPI(title="CRM Geral", version="0.1.0")
+    register_exception_handlers(application)
+    application.include_router(health_router)
+    return application
+
+
+app = create_app()
