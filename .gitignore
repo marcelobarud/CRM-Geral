@@ -48,7 +48,6 @@ temp/
 # IDE and operating system files
 .vscode/
 .idea/
-.codex/
 .DS_Store
 Thumbs.db
 
