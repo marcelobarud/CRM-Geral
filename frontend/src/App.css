@@ -1,0 +1,31 @@
+.bootstrap-page {
+  width: min(42rem, 100%);
+  padding: 3rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 1.5rem 4rem rgba(30, 64, 175, 0.12);
+}
+
+.bootstrap-page h1 {
+  margin: 0;
+  color: #172554;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.1;
+}
+
+.bootstrap-page p:last-child {
+  margin: 1rem 0 0;
+  color: #475569;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: #2563eb;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
