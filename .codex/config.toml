@@ -1,13 +1,13 @@
 # Configuração de projeto.
 # Provider/auth do 9Router ficam em ~/.codex/config.toml, não aqui.
 
-# O combo atual do projeto é roteado pelo provider 9router global.
-model = "Luna_Sol"
+# O modelo padrão do projeto segue o modelo Luna configurado pelo usuário.
+model = "gpt-5.6-luna"
 model_reasoning_effort = "high"
 
 [agents]
 enabled = true
 max_concurrent_threads_per_session = 4
 interrupt_message = true
-default_subagent_model = "Luna_Sol"
+default_subagent_model = "gpt-5.6-luna"
 default_subagent_reasoning_effort = "high"

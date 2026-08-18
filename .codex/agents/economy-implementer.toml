@@ -1,11 +1,11 @@
 name = "economy_implementer"
 description = "Implementador econômico para tarefas bem delimitadas e de médio porte."
-model = "Luna_Sol"
+model = "gpt-5.6-luna"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
-Use o combo Luna_Sol, priorizando conceitualmente Luna para execução
-operacional e tarefas bem delimitadas.
+Use o modelo configurado pelo usuário. Luna é o padrão do projeto; uma eventual
+seleção de Sol é manual e externa à lógica deste agente.
 
 Execute features bem especificadas e de baixo/médio risco arquitetural.
 

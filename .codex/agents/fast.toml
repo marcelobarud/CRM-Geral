@@ -1,11 +1,11 @@
 name = "fast"
 description = "Worker rápido para mudanças pequenas, mecânicas e claramente delimitadas."
-model = "Luna_Sol"
+model = "gpt-5.6-luna"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
-Use o combo Luna_Sol, priorizando conceitualmente Luna para respostas rápidas
-e operações de baixo risco.
+Use o modelo configurado pelo usuário. Luna é o padrão do projeto; uma eventual
+seleção de Sol é manual e externa à lógica deste agente.
 
 Execute somente mudanças pequenas: textos, labels, renames locais, CSS simples,
 tipagem isolada, boilerplate e testes triviais.

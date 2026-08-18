@@ -17,6 +17,14 @@ benefício real de qualidade, custo ou isolamento de contexto.
 
 ## Papéis
 
+Os cinco papéis conceituais do projeto são `architect`, `planner`,
+`implementer`, `reviewer` e `fast`. Todos utilizam o modelo configurado pelo
+usuário, tendo GPT-5.6 Luna como padrão. A seleção eventual de GPT-5.6 Sol é
+manual e externa à lógica dos agentes.
+
+`economy_implementer` permanece apenas como especialização auxiliar já
+existente; não participa da escolha de modelo.
+
 - `fast`: mudanças pequenas e mecânicas.
 - `implementer`: implementação normal.
 - `economy_implementer`: implementação econômica e bem delimitada.

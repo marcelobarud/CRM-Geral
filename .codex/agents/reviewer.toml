@@ -1,12 +1,11 @@
 name = "reviewer"
 description = "Reviewer independente focado em bugs, regressões, contratos, dados e testes."
-model = "Luna_Sol"
+model = "gpt-5.6-luna"
 sandbox_mode = "read-only"
 
 developer_instructions = """
-Use o combo Luna_Sol. Luna é a preferência conceitual para revisões normais;
-Sol deve ser priorizado conceitualmente em segurança, arquitetura, integridade
-de dados, transações, migrations críticas e mudanças estruturais amplas.
+Use o modelo configurado pelo usuário. Luna é o padrão do projeto; uma eventual
+seleção de Sol é manual e externa à lógica deste agente.
 
 Não edite arquivos.
 
