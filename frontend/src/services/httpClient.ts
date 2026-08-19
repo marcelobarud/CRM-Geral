@@ -57,6 +57,26 @@ export async function request<T>(
   return body as T
 }
 
+export function requestJson<T>(
+  path: string,
+  method: 'POST' | 'PATCH',
+  payload: unknown,
+): Promise<T> {
+  return request<T>(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getApiErrorMessage(
+  error: unknown,
+  fallback: string,
+): string {
+  if (error instanceof ApiError) return error.message
+  return fallback
+}
+
 export function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>('/api/health')
 }

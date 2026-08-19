@@ -1,14 +1,120 @@
-import { FeaturePlaceholder } from '../../components/FeaturePlaceholder'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { EmptyState } from '../../components/EmptyState'
+import { ErrorState } from '../../components/ErrorState'
+import { FeedbackBanner } from '../../components/FeedbackBanner'
+import { LoadingState } from '../../components/LoadingState'
+import { Modal } from '../../components/Modal'
+import { PageHeader } from '../../components/PageHeader'
+import { getApiErrorMessage } from '../../services/httpClient'
+import {
+  createCustomer,
+  deleteCustomer,
+  listCustomers,
+  updateCustomer,
+} from './api'
+import type { Customer, CustomerPayload } from './types'
+
+const emptyCustomer: CustomerPayload = {
+  nome: '',
+  cidade: '',
+  estado: '',
+  rua: '',
+  numero: '',
+  complemento: '',
+}
+
+type CustomerFormProps = {
+  initialValue: CustomerPayload
+  saving: boolean
+  onCancel: () => void
+  onSave: (payload: CustomerPayload) => void
+}
+
+function CustomerForm({ initialValue, saving, onCancel, onSave }: CustomerFormProps) {
+  const [form, setForm] = useState({ ...initialValue, complemento: initialValue.complemento ?? '' })
+
+  const updateField = (field: keyof CustomerPayload, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    onSave({ ...form, complemento: form.complemento.trim() || null })
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <div className="form-grid">
+        <div className="form-field form-grid-wide"><label htmlFor="customer-name">Nome</label><input id="customer-name" required value={form.nome} onChange={(event) => updateField('nome', event.target.value)} /></div>
+        <div className="form-field"><label htmlFor="customer-city">Cidade</label><input id="customer-city" required value={form.cidade} onChange={(event) => updateField('cidade', event.target.value)} /></div>
+        <div className="form-field"><label htmlFor="customer-state">Estado</label><input id="customer-state" required maxLength={2} value={form.estado} onChange={(event) => updateField('estado', event.target.value.toUpperCase())} /></div>
+        <div className="form-field"><label htmlFor="customer-street">Rua</label><input id="customer-street" required value={form.rua} onChange={(event) => updateField('rua', event.target.value)} /></div>
+        <div className="form-field"><label htmlFor="customer-number">Número</label><input id="customer-number" required value={form.numero} onChange={(event) => updateField('numero', event.target.value)} /></div>
+        <div className="form-field form-grid-wide"><label htmlFor="customer-complement">Complemento (opcional)</label><input id="customer-complement" value={form.complemento ?? ''} onChange={(event) => updateField('complemento', event.target.value)} /></div>
+      </div>
+      <div className="form-actions"><button className="button button-secondary" type="button" onClick={onCancel} disabled={saving}>Cancelar</button><button className="button button-primary" type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar cliente'}</button></div>
+    </form>
+  )
+}
+
+function CustomerDetails({ customer }: { customer: Customer }) {
+  return (
+    <dl className="detail-grid">
+      <div><dt>Nome</dt><dd>{customer.nome}</dd></div><div><dt>Cidade / Estado</dt><dd>{customer.cidade} / {customer.estado}</dd></div><div><dt>Rua</dt><dd>{customer.rua}</dd></div><div><dt>Número</dt><dd>{customer.numero}</dd></div><div className="form-grid-wide"><dt>Complemento</dt><dd>{customer.complemento || 'Não informado'}</dd></div>
+    </dl>
+  )
+}
 
 export function CustomersPage() {
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+  const [modal, setModal] = useState<'create' | 'edit' | 'view' | null>(null)
+  const [selected, setSelected] = useState<Customer | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const loadCustomers = useCallback(async () => {
+    setError(null)
+    try { setCustomers(await listCustomers()) } catch (loadError) { setError(getApiErrorMessage(loadError, 'Não foi possível carregar os clientes.')) } finally { setLoading(false) }
+  }, [])
+
+  // oxlint-disable-next-line
+  useEffect(() => { void loadCustomers() }, [loadCustomers])
+
+  const saveCustomer = async (payload: CustomerPayload) => {
+    setSaving(true)
+    setFeedback(null)
+    try {
+      const saved = selected ? await updateCustomer(selected.id, payload) : await createCustomer(payload)
+      setCustomers((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved])
+      setModal(null)
+      setSelected(null)
+      setFeedback({ kind: 'success', message: selected ? 'Cliente atualizado com sucesso.' : 'Cliente criado com sucesso.' })
+    } catch (saveError) { setFeedback({ kind: 'error', message: getApiErrorMessage(saveError, 'Não foi possível salvar o cliente.') }) } finally { setSaving(false) }
+  }
+
+  const removeCustomer = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    setFeedback(null)
+    try { await deleteCustomer(deleteTarget.id); setCustomers((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Cliente excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não foi possível excluir o cliente.') }) } finally { setDeleting(false); setDeleteTarget(null) }
+  }
+
+  const formValue = selected ? { ...selected } : emptyCustomer
+
   return (
-    <FeaturePlaceholder
-      eyebrow="Cadastros"
-      title="Clientes"
-      description="A base para organizar seus clientes estará disponível aqui."
-      emptyTitle="Cadastro de clientes em preparação"
-      emptyDescription="A listagem e os formulários serão construídos na próxima fase."
-      icon="◎"
-    />
+    <div className="crud-page">
+      <div className="crud-page-header"><PageHeader eyebrow="Cadastros" title="Clientes" description="Organize as pessoas que fazem parte do seu negócio." /><button className="button button-primary" type="button" onClick={() => { setSelected(null); setModal('create'); setFeedback(null) }}>+ Novo cliente</button></div>
+      {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
+      {loading ? <LoadingState label="Carregando clientes..." /> : error ? <ErrorState description={error} onRetry={() => { setLoading(true); void loadCustomers() }} /> : customers.length === 0 ? <div className="data-card"><EmptyState title="Nenhum cliente cadastrado ainda" description="Crie o primeiro cliente para começar sua base de relacionamento." /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Cliente</th><th>Localização</th><th>Endereço</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{customers.map((customer) => <tr key={customer.id}><td className="data-primary">{customer.nome}<span className="data-secondary">ID {customer.id}</span></td><td>{customer.cidade} / {customer.estado}</td><td>{customer.rua}, {customer.numero}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => { setSelected(customer); setModal('view') }}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(customer); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(customer)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
+      {modal === 'view' && selected ? <Modal title="Detalhes do cliente" onClose={() => setModal(null)}><CustomerDetails customer={selected} /></Modal> : null}
+      {(modal === 'create' || modal === 'edit') ? <Modal title={modal === 'edit' ? 'Editar cliente' : 'Novo cliente'} description="Preencha os campos obrigatórios para continuar." onClose={() => setModal(null)}><CustomerForm initialValue={formValue} saving={saving} onCancel={() => setModal(null)} onSave={(payload) => void saveCustomer(payload)} /></Modal> : null}
+      {deleteTarget ? <ConfirmDialog title="Excluir cliente?" description={`O cadastro de ${deleteTarget.nome} será removido. Essa ação não pode ser desfeita.`} busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={() => void removeCustomer()} /> : null}
+    </div>
   )
 }
