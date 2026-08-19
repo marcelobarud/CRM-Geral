@@ -64,7 +64,9 @@ export function ProductsPage() {
   }
 
   const supplierName = (supplierId: number) => suppliers.find((supplier) => supplier.id === supplierId)?.nome || 'Fornecedor não encontrado'
-  const formValue = selected ? { ...selected } : emptyProduct
+  const formValue: ProductPayload = selected
+    ? (({ id: _id, ...payload }) => payload)(selected)
+    : emptyProduct
   return <div className="crud-page">
     <div className="crud-page-header"><PageHeader eyebrow="Cadastros" title="Produtos" description="Mantenha seu catálogo e seus preços organizados." /><button className="button button-primary" type="button" onClick={() => { setSelected(null); setModal('create'); setFeedback(null) }}>+ Novo produto</button></div>
     {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}

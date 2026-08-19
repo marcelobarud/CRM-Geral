@@ -105,7 +105,9 @@ export function CustomersPage() {
     try { await deleteCustomer(deleteTarget.id); setCustomers((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Cliente excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não foi possível excluir o cliente.') }) } finally { setDeleting(false); setDeleteTarget(null) }
   }
 
-  const formValue = selected ? { ...selected } : emptyCustomer
+  const formValue: CustomerPayload = selected
+    ? (({ id: _id, ...payload }) => payload)(selected)
+    : emptyCustomer
 
   return (
     <div className="crud-page">

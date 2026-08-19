@@ -61,7 +61,9 @@ export function EmployeesPage() {
     try { await deleteEmployee(deleteTarget.id); setEmployees((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Funcionário excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não é possível excluir este funcionário porque há vendas relacionadas.') }) } finally { setDeleting(false); setDeleteTarget(null) }
   }
 
-  const formValue = selected ? { ...selected } : emptyEmployee
+  const formValue: EmployeePayload = selected
+    ? (({ id: _id, ...payload }) => payload)(selected)
+    : emptyEmployee
   return <div className="crud-page">
     <div className="crud-page-header"><PageHeader eyebrow="Cadastros" title="Funcionários" description="Organize a equipe que participa da operação." /><button className="button button-primary" type="button" onClick={() => { setSelected(null); setModal('create'); setFeedback(null) }}>+ Novo funcionário</button></div>
     {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
