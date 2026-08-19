@@ -267,7 +267,9 @@ def test_sale_creation_uses_catalog_price_and_calculates_totals(
     assert Decimal(str(body["itens"][0]["subtotal"])) == Decimal("38.75")
     assert Decimal(str(body["total"])) == Decimal("38.75")
 
-    persisted = session.scalars(select(Venda)).one()
+    sale_id = body["id"]
+    persisted = session.scalar(select(Venda).where(Venda.id == sale_id))
+    assert persisted is not None
     assert len(persisted.itens) == 1
     assert persisted.itens[0].preco_unitario == Decimal("15.50")
 
@@ -322,6 +324,7 @@ def test_sales_list_and_missing_references_are_handled_atomically(
     session,
 ) -> None:
     customer, employee, product = seed_sale_dependencies(session)
+    existing_sale_ids = set(session.scalars(select(Venda.id)).all())
     payload = {
         "cliente_id": customer.id,
         "funcionario_id": employee.id,
@@ -338,13 +341,15 @@ def test_sales_list_and_missing_references_are_handled_atomically(
         response = client.post("/api/sales", json=invalid_payload)
         assert response.status_code == 404
 
-    assert session.scalars(select(Venda)).all() == []
+    assert set(session.scalars(select(Venda.id)).all()) == existing_sale_ids
 
     created = client.post("/api/sales", json=payload)
     assert created.status_code == 201
     list_response = client.get("/api/sales")
     assert list_response.status_code == 200
-    assert [sale["id"] for sale in list_response.json()] == [created.json()["id"]]
+    listed_sale_ids = {sale["id"] for sale in list_response.json()}
+    expected_sale_ids = existing_sale_ids | {created.json()["id"]}
+    assert listed_sale_ids == expected_sale_ids
 
 
 @pytest.mark.parametrize(

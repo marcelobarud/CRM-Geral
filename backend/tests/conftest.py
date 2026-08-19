@@ -15,6 +15,15 @@ REQUIRED_TABLES = {
     "venda_itens",
 }
 
+TEST_DATA_TABLES = (
+    "venda_itens",
+    "vendas",
+    "produtos",
+    "funcionarios",
+    "clientes",
+    "fornecedores",
+)
+
 
 @pytest.fixture(scope="session")
 def test_engine():
@@ -64,13 +73,31 @@ def test_engine():
     engine.dispose()
 
 
+@pytest.fixture(scope="session")
+def clean_test_database(test_engine):
+    table_names = ", ".join(TEST_DATA_TABLES)
+    cleanup_statement = text(
+        f"TRUNCATE TABLE {table_names} RESTART IDENTITY"
+    )
+
+    with test_engine.begin() as connection:
+        connection.execute(cleanup_statement)
+
+    yield
+
+    with test_engine.begin() as connection:
+        connection.execute(cleanup_statement)
+
+
 @pytest.fixture
-def session(test_engine):
+def session(test_engine, clean_test_database):
     connection = test_engine.connect()
     transaction = connection.begin()
     database_session = Session(
         bind=connection,
-        join_transaction_mode="create_savepoint",
+        # The fixture owns the outer transaction. Application commits must
+        # never be allowed to commit it during an integration test.
+        join_transaction_mode="rollback_only",
     )
     try:
         yield database_session
