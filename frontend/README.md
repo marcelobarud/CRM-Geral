@@ -1,32 +1,37 @@
-# React + TypeScript + Vite
+# Frontend do CRM Geral
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Frontend administrativo construído com React, TypeScript e Vite.
 
-Currently, two official plugins are available:
+## Desenvolvimento
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+O frontend usa `http://127.0.0.1:8000` como URL padrão do backend. Para
+configurar outro endereço, copie `.env.example` para `.env.local` e ajuste:
+
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
+
+## Qualidade
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+## Organização atual
+
+- `src/app`: roteamento leve e estado técnico da aplicação;
+- `src/components`: layout, navegação e estados compartilhados;
+- `src/features`: páginas separadas por área da V1;
+- `src/pages`: páginas transversais, como endereço não encontrado;
+- `src/services`: cliente HTTP centralizado;
+- `src/types`: contratos TypeScript usados pelo frontend.
+
+As áreas de cadastros e vendas estão como placeholders nesta etapa. Os CRUDs e
+a interface operacional de vendas serão implementados nas fases seguintes.
