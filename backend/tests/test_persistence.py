@@ -3,87 +3,16 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import create_engine, func, inspect, select, text
-from sqlalchemy.engine import make_url
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Cliente, Fornecedor, Funcionario, Produto, Venda, VendaItem
 
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
-REQUIRED_TABLES = {
-    "alembic_version",
-    "clientes",
-    "fornecedores",
-    "funcionarios",
-    "produtos",
-    "vendas",
-    "venda_itens",
-}
 pytestmark = pytest.mark.skipif(
-    not TEST_DATABASE_URL,
+    not os.getenv("TEST_DATABASE_URL"),
     reason="defina TEST_DATABASE_URL para executar os testes PostgreSQL",
 )
-
-
-@pytest.fixture(scope="session")
-def test_engine():
-    if TEST_DATABASE_URL is None:
-        pytest.skip("TEST_DATABASE_URL não foi definida")
-    database_url = make_url(TEST_DATABASE_URL)
-    if (
-        database_url.get_backend_name() != "postgresql"
-        or database_url.get_driver_name() != "psycopg"
-    ):
-        pytest.fail("TEST_DATABASE_URL deve usar PostgreSQL com o driver psycopg")
-    if not database_url.database or not database_url.database.endswith("_test"):
-        pytest.fail("TEST_DATABASE_URL deve apontar para um banco com sufixo _test")
-
-    engine = create_engine(TEST_DATABASE_URL)
-    try:
-        with engine.connect() as connection:
-            connection.execute(select(1))
-    except Exception:
-        engine.dispose()
-        pytest.fail(
-            "Não foi possível conectar ao PostgreSQL de teste; "
-            "verifique TEST_DATABASE_URL, o serviço e as credenciais locais."
-        )
-
-    with engine.connect() as connection:
-        missing_tables = REQUIRED_TABLES - set(inspect(connection).get_table_names())
-        if missing_tables:
-            engine.dispose()
-            pytest.fail(
-                "O banco de teste não está em head; execute alembic upgrade head "
-                "antes da suíte de persistência."
-            )
-        applied_versions = set(
-            connection.execute(text("SELECT version_num FROM alembic_version"))
-            .scalars()
-            .all()
-        )
-        if applied_versions != {"20260818_0001"}:
-            engine.dispose()
-            pytest.fail("A migration da Fase 3 não está aplicada em head")
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture
-def session(test_engine):
-    connection = test_engine.connect()
-    transaction = connection.begin()
-    database_session = Session(
-        bind=connection,
-        join_transaction_mode="create_savepoint",
-    )
-    try:
-        yield database_session
-    finally:
-        database_session.close()
-        transaction.rollback()
-        connection.close()
 
 
 def make_supplier() -> Fornecedor:
