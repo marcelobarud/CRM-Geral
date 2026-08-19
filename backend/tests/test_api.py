@@ -4,10 +4,11 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.db.session import get_db_session
 from app.main import app
-from app.models import Cliente, Funcionario, Venda, VendaItem
+from app.models import Cliente, Fornecedor, Funcionario, Produto, Venda, VendaItem
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(
@@ -68,6 +69,29 @@ def product_payload(supplier_id: int) -> dict[str, object]:
         "preco_venda": "15.50",
         "fornecedor_id": supplier_id,
     }
+
+
+def seed_sale_dependencies(session):
+    supplier = Fornecedor(
+        nome="Fornecedor vendas",
+        cidade="São Paulo",
+        estado="SP",
+        rua="Rua Vendas",
+        numero="1",
+        cnpj="12.345.678/0001-90",
+    )
+    customer = Cliente(**customer_payload())
+    employee = Funcionario(**employee_payload())
+    product = Produto(
+        nome="Produto vendas",
+        categoria="Geral",
+        preco_custo=Decimal("7.00"),
+        preco_venda=Decimal("15.50"),
+        fornecedor=supplier,
+    )
+    session.add_all([supplier, customer, employee, product])
+    session.flush()
+    return customer, employee, product
 
 
 def test_customer_crud_and_validation(client: TestClient) -> None:
@@ -210,21 +234,147 @@ def test_product_crud_supplier_validation_and_referenced_delete(
     assert delete_response.status_code == 409
 
 
-def test_openapi_lists_phase_four_routes_and_health_check() -> None:
-    client = TestClient(app)
-    docs_response = client.get("/docs")
-    response = client.get("/openapi.json")
+def test_sale_creation_uses_catalog_price_and_calculates_totals(
+    client: TestClient,
+    session,
+) -> None:
+    customer, employee, product = seed_sale_dependencies(session)
 
-    assert docs_response.status_code == 200
-    assert response.status_code == 200
-    paths = response.json()["paths"]
-    assert "/api/health" in paths
-    resource_paths = {
-        "customers": "customer_id",
-        "suppliers": "supplier_id",
-        "employees": "employee_id",
-        "products": "product_id",
+    response = client.post(
+        "/api/sales",
+        json={
+            "cliente_id": customer.id,
+            "funcionario_id": employee.id,
+            "data_venda": "2026-08-19T10:00:00Z",
+            "itens": [{"produto_id": product.id, "quantidade": "2.500"}],
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["cliente"] == {"id": customer.id, "nome": customer.nome}
+    assert body["funcionario"] == {
+        "id": employee.id,
+        "nome_completo": employee.nome_completo,
     }
-    for resource, identifier in resource_paths.items():
-        assert f"/api/{resource}" in paths
-        assert f"/api/{resource}/{{{identifier}}}" in paths
+    assert len(body["itens"]) == 1
+    assert body["itens"][0]["produto"] == {
+        "id": product.id,
+        "nome": product.nome,
+    }
+    assert Decimal(str(body["itens"][0]["quantidade"])) == Decimal("2.500")
+    assert Decimal(str(body["itens"][0]["preco_unitario"])) == Decimal("15.50")
+    assert Decimal(str(body["itens"][0]["subtotal"])) == Decimal("38.75")
+    assert Decimal(str(body["total"])) == Decimal("38.75")
+
+    persisted = session.scalars(select(Venda)).one()
+    assert len(persisted.itens) == 1
+    assert persisted.itens[0].preco_unitario == Decimal("15.50")
+
+
+def test_sale_creation_supports_multiple_items_and_history_keeps_price(
+    client: TestClient,
+    session,
+) -> None:
+    customer, employee, first_product = seed_sale_dependencies(session)
+    second_product = Produto(
+        nome="Segundo produto",
+        categoria="Geral",
+        preco_custo=Decimal("4.00"),
+        preco_venda=Decimal("8.25"),
+        fornecedor_id=first_product.fornecedor_id,
+    )
+    session.add(second_product)
+    session.flush()
+
+    response = client.post(
+        "/api/sales",
+        json={
+            "cliente_id": customer.id,
+            "funcionario_id": employee.id,
+            "data_venda": "2026-08-19T11:00:00Z",
+            "itens": [
+                {"produto_id": first_product.id, "quantidade": "1.250"},
+                {"produto_id": second_product.id, "quantidade": "2.000"},
+            ],
+        },
+    )
+
+    assert response.status_code == 201
+    assert Decimal(str(response.json()["total"])) == Decimal("35.88")
+
+    first_product.preco_venda = Decimal("20.00")
+    session.commit()
+
+    detail_response = client.get(f"/api/sales/{response.json()['id']}")
+    assert detail_response.status_code == 200
+    detail_items = detail_response.json()["itens"]
+    prices_by_product = {
+        item["produto"]["id"]: Decimal(str(item["preco_unitario"]))
+        for item in detail_items
+    }
+    assert prices_by_product[first_product.id] == Decimal("15.50")
+    assert prices_by_product[second_product.id] == Decimal("8.25")
+
+
+def test_sales_list_and_missing_references_are_handled_atomically(
+    client: TestClient,
+    session,
+) -> None:
+    customer, employee, product = seed_sale_dependencies(session)
+    payload = {
+        "cliente_id": customer.id,
+        "funcionario_id": employee.id,
+        "data_venda": "2026-08-19T12:00:00Z",
+        "itens": [{"produto_id": product.id, "quantidade": "1.000"}],
+    }
+
+    for field, value in (
+        ("cliente_id", 999991),
+        ("funcionario_id", 999992),
+        ("itens", [{"produto_id": 999993, "quantidade": "1.000"}]),
+    ):
+        invalid_payload = {**payload, field: value}
+        response = client.post("/api/sales", json=invalid_payload)
+        assert response.status_code == 404
+
+    assert session.scalars(select(Venda)).all() == []
+
+    created = client.post("/api/sales", json=payload)
+    assert created.status_code == 201
+    list_response = client.get("/api/sales")
+    assert list_response.status_code == 200
+    assert [sale["id"] for sale in list_response.json()] == [created.json()["id"]]
+
+
+@pytest.mark.parametrize(
+    "items",
+    [
+        [],
+        [{"produto_id": 1, "quantidade": "0"}],
+        [{"produto_id": 1, "quantidade": "-1.000"}],
+        [
+            {
+                "produto_id": 1,
+                "quantidade": "1.000",
+                "preco_unitario": "10.00",
+            }
+        ],
+        [
+            {"produto_id": 1, "quantidade": "1.000"},
+            {"produto_id": 1, "quantidade": "2.000"},
+        ],
+    ],
+)
+def test_sale_input_validation_returns_422(client: TestClient, items) -> None:
+    response = client.post(
+        "/api/sales",
+        json={
+            "cliente_id": 1,
+            "funcionario_id": 1,
+            "data_venda": "2026-08-19T10:00:00Z",
+            "itens": items,
+        },
+    )
+
+    assert response.status_code == 422

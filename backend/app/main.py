@@ -4,6 +4,7 @@ from app.api.customers import router as customers_router
 from app.api.employees import router as employees_router
 from app.api.health import router as health_router
 from app.api.products import router as products_router
+from app.api.sales import router as sales_router
 from app.api.suppliers import router as suppliers_router
 from app.core.errors import register_exception_handlers
 
@@ -16,6 +17,7 @@ def create_app() -> FastAPI:
     application.include_router(suppliers_router)
     application.include_router(employees_router)
     application.include_router(products_router)
+    application.include_router(sales_router)
     return application
 
 
