@@ -3,14 +3,23 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import create_engine, func, select
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db.base import Base
 from app.models import Cliente, Fornecedor, Funcionario, Produto, Venda, VendaItem
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
+REQUIRED_TABLES = {
+    "alembic_version",
+    "clientes",
+    "fornecedores",
+    "funcionarios",
+    "produtos",
+    "vendas",
+    "venda_itens",
+}
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE_URL,
     reason="defina TEST_DATABASE_URL para executar os testes PostgreSQL",
@@ -21,20 +30,43 @@ pytestmark = pytest.mark.skipif(
 def test_engine():
     if TEST_DATABASE_URL is None:
         pytest.skip("TEST_DATABASE_URL não foi definida")
-    if not TEST_DATABASE_URL.startswith("postgresql+psycopg://"):
+    database_url = make_url(TEST_DATABASE_URL)
+    if (
+        database_url.get_backend_name() != "postgresql"
+        or database_url.get_driver_name() != "psycopg"
+    ):
         pytest.fail("TEST_DATABASE_URL deve usar PostgreSQL com o driver psycopg")
+    if not database_url.database or not database_url.database.endswith("_test"):
+        pytest.fail("TEST_DATABASE_URL deve apontar para um banco com sufixo _test")
 
     engine = create_engine(TEST_DATABASE_URL)
     try:
         with engine.connect() as connection:
             connection.execute(select(1))
-    except OperationalError as exception:
+    except Exception:
         engine.dispose()
-        pytest.skip(f"PostgreSQL de teste indisponível: {exception}")
+        pytest.fail(
+            "Não foi possível conectar ao PostgreSQL de teste; "
+            "verifique TEST_DATABASE_URL, o serviço e as credenciais locais."
+        )
 
-    Base.metadata.create_all(engine)
+    with engine.connect() as connection:
+        missing_tables = REQUIRED_TABLES - set(inspect(connection).get_table_names())
+        if missing_tables:
+            engine.dispose()
+            pytest.fail(
+                "O banco de teste não está em head; execute alembic upgrade head "
+                "antes da suíte de persistência."
+            )
+        applied_versions = set(
+            connection.execute(text("SELECT version_num FROM alembic_version"))
+            .scalars()
+            .all()
+        )
+        if applied_versions != {"20260818_0001"}:
+            engine.dispose()
+            pytest.fail("A migration da Fase 3 não está aplicada em head")
     yield engine
-    Base.metadata.drop_all(engine)
     engine.dispose()
 
 
@@ -42,7 +74,10 @@ def test_engine():
 def session(test_engine):
     connection = test_engine.connect()
     transaction = connection.begin()
-    database_session = Session(bind=connection)
+    database_session = Session(
+        bind=connection,
+        join_transaction_mode="create_savepoint",
+    )
     try:
         yield database_session
     finally:
@@ -254,7 +289,7 @@ def test_negative_item_price_is_rejected(session: Session) -> None:
         session.commit()
 
 
-def test_invalid_foreign_key_is_rejected(session: Session) -> None:
+def test_invalid_product_supplier_foreign_key_is_rejected(session: Session) -> None:
     product = Produto(
         nome="Produto sem fornecedor",
         categoria="Geral",
@@ -263,6 +298,75 @@ def test_invalid_foreign_key_is_rejected(session: Session) -> None:
         fornecedor_id=999999,
     )
     session.add(product)
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_invalid_sale_customer_foreign_key_is_rejected(session: Session) -> None:
+    employee = make_employee()
+    session.add(employee)
+    session.flush()
+    sale = Venda(
+        cliente_id=999999,
+        funcionario_id=employee.id,
+        data_venda=datetime.now(timezone.utc),
+    )
+    session.add(sale)
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_invalid_sale_employee_foreign_key_is_rejected(session: Session) -> None:
+    customer = make_customer()
+    session.add(customer)
+    session.flush()
+    sale = Venda(
+        cliente_id=customer.id,
+        funcionario_id=999999,
+        data_venda=datetime.now(timezone.utc),
+    )
+    session.add(sale)
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_invalid_item_sale_foreign_key_is_rejected(session: Session) -> None:
+    supplier = make_supplier()
+    product = make_product(supplier)
+    session.add(product)
+    session.flush()
+    item = VendaItem(
+        venda_id=999999,
+        produto_id=product.id,
+        quantidade=Decimal("1.000"),
+        preco_unitario=Decimal("15.50"),
+    )
+    session.add(item)
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_invalid_item_product_foreign_key_is_rejected(session: Session) -> None:
+    customer = make_customer()
+    employee = make_employee()
+    sale = Venda(
+        cliente=customer,
+        funcionario=employee,
+        data_venda=datetime.now(timezone.utc),
+    )
+    session.add(sale)
+    session.flush()
+    item = VendaItem(
+        venda_id=sale.id,
+        produto_id=999999,
+        quantidade=Decimal("1.000"),
+        preco_unitario=Decimal("15.50"),
+    )
+    session.add(item)
 
     with pytest.raises(IntegrityError):
         session.commit()
@@ -289,6 +393,32 @@ def test_referenced_records_cannot_be_deleted(session: Session) -> None:
     session.commit()
 
     session.delete(product)
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_referenced_customer_cannot_be_deleted(session: Session) -> None:
+    supplier = make_supplier()
+    customer = make_customer()
+    employee = make_employee()
+    product = make_product(supplier)
+    sale = Venda(
+        cliente=customer,
+        funcionario=employee,
+        data_venda=datetime.now(timezone.utc),
+        itens=[
+            VendaItem(
+                produto=product,
+                quantidade=Decimal("1.000"),
+                preco_unitario=Decimal("15.50"),
+            )
+        ],
+    )
+    session.add(sale)
+    session.commit()
+
+    session.delete(customer)
 
     with pytest.raises(IntegrityError):
         session.commit()

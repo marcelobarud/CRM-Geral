@@ -243,7 +243,9 @@ O design deve ser:
 - Estado deve ser armazenado como texto curto.
 - Número do endereço deve utilizar representação que permita valores como 10A,
   S/N ou equivalentes no futuro.
-- quantidade deve ser maior que zero.
+- quantidade deve ser maior que zero e pode admitir valores fracionários,
+  persistidos com representação decimal adequada; unidade de medida permanece
+  fora da V1.
 - preco_custo, preco_venda e preco_unitario não podem ser negativos.
 - Valores monetários devem utilizar tipo decimal apropriado, nunca ponto
   flutuante binário.
