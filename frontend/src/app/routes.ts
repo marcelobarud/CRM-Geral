@@ -42,8 +42,8 @@ const routeDescriptions: Record<string, string> = {
   '/products': 'O catálogo de produtos do seu negócio ficará centralizado aqui.',
   '/suppliers': 'Seus fornecedores poderão ser acompanhados nesta área.',
   '/employees': 'A equipe responsável pela operação será organizada aqui.',
-  '/sales/new': 'A criação de vendas será construída na próxima etapa.',
-  '/sales': 'O histórico de vendas será exibido nesta área.',
+  '/sales/new': 'Registre uma venda com múltiplos itens e preços históricos.',
+  '/sales': 'Consulte o histórico de vendas e seus totais.',
 }
 
 const routeItems = navigationGroups.flatMap((group) => group.items)
