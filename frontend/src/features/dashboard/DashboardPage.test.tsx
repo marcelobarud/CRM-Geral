@@ -57,6 +57,10 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: /Funcionários/ }).textContent).toContain('4')
     expect(screen.getByRole('link', { name: /Vendas/ }).textContent).toContain('5')
     expect(screen.getByRole('link', { name: /Nova vendaRegistre uma venda com um ou mais produtos/ })).toBeTruthy()
+
+    const sections = Array.from(document.querySelectorAll('.dashboard-section'))
+    expect(sections[0]?.classList.contains('dashboard-actions-section')).toBe(true)
+    expect(sections[1]?.querySelector('#dashboard-summary-title')).toBeTruthy()
   })
 
   it('shows a consistent loading state while list requests are pending', () => {

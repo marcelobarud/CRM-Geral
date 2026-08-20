@@ -164,6 +164,19 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
 
       {!loading ? (
         <>
+          <section className="dashboard-section dashboard-actions-section" aria-labelledby="dashboard-actions-title">
+            <div className="dashboard-section-heading">
+              <div>
+                <p className="eyebrow">Atalhos</p>
+                <h2 id="dashboard-actions-title">Próximos passos</h2>
+              </div>
+            </div>
+            <div className="dashboard-actions-grid">
+              <QuickAction label="Nova venda" description="Registre uma venda com um ou mais produtos." icon="+" href="/sales/new" onNavigate={onNavigate} />
+              <QuickAction label="Abrir vendas" description="Consulte o histórico e os preços aplicados." icon="↗" href="/sales" onNavigate={onNavigate} />
+            </div>
+          </section>
+
           <section className="dashboard-section" aria-labelledby="dashboard-summary-title">
             <div className="dashboard-section-heading">
               <div>
@@ -178,19 +191,6 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
               <SummaryCard label="Fornecedores" count={counts.suppliers} description={counts.suppliers === 0 ? 'Nenhum fornecedor cadastrado' : 'Parceiros cadastrados'} icon="◈" href="/suppliers" onNavigate={onNavigate} />
               <SummaryCard label="Funcionários" count={counts.employees} description={counts.employees === 0 ? 'Nenhum funcionário cadastrado' : 'Equipe cadastrada'} icon="♙" href="/employees" onNavigate={onNavigate} />
               <SummaryCard label="Vendas" count={counts.sales} description={counts.sales === 0 ? 'Nenhuma venda registrada' : 'Vendas no histórico'} icon="↗" href="/sales" onNavigate={onNavigate} />
-            </div>
-          </section>
-
-          <section className="dashboard-section dashboard-actions-section" aria-labelledby="dashboard-actions-title">
-            <div className="dashboard-section-heading">
-              <div>
-                <p className="eyebrow">Atalhos</p>
-                <h2 id="dashboard-actions-title">Próximos passos</h2>
-              </div>
-            </div>
-            <div className="dashboard-actions-grid">
-              <QuickAction label="Nova venda" description="Registre uma venda com um ou mais produtos." icon="+" href="/sales/new" onNavigate={onNavigate} />
-              <QuickAction label="Abrir vendas" description="Consulte o histórico e os preços aplicados." icon="↗" href="/sales" onNavigate={onNavigate} />
             </div>
           </section>
         </>

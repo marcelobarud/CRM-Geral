@@ -1026,20 +1026,31 @@
 
 .sale-item-row {
   display: grid;
-  grid-template-columns: minmax(14rem, 2fr) minmax(8rem, 0.85fr) minmax(8rem, 1fr) minmax(8rem, 1fr) auto;
+  grid-template-columns: minmax(0, 2fr) minmax(6.5rem, 0.85fr) minmax(6.5rem, 1fr) minmax(6.5rem, 1fr) auto;
   gap: 0.8rem;
-  align-items: end;
+  align-items: stretch;
   padding: 1rem;
   border: 1px solid #e5eef2;
   border-radius: 0.9rem;
   background: #fbfdfe;
 }
 
+.sale-item-row > * {
+  min-width: 0;
+}
+
+.sale-item-product,
+.sale-item-quantity,
+.sale-item-value {
+  grid-template-rows: 3rem 2.7rem minmax(1.9rem, auto);
+  row-gap: 0.4rem;
+  align-content: start;
+}
+
 .sale-item-value {
   display: grid;
-  gap: 0.25rem;
   min-width: 0;
-  padding-bottom: 0.15rem;
+  padding-bottom: 0;
 }
 
 .sale-item-label {
@@ -1365,7 +1376,7 @@
   }
 
   .sale-item-row {
-    grid-template-columns: minmax(0, 1.5fr) minmax(8rem, 0.8fr) minmax(8rem, 1fr) minmax(8rem, 1fr) auto;
+    grid-template-columns: minmax(0, 1.5fr) minmax(6.5rem, 0.8fr) minmax(6.5rem, 1fr) minmax(6.5rem, 1fr) auto;
   }
 }
 
@@ -1439,6 +1450,15 @@
   .sale-item-row {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .sale-item-product {
+    grid-template-rows: auto 2.7rem;
+  }
+
+  .sale-item-quantity,
+  .sale-item-value {
+    grid-template-rows: auto 2.7rem minmax(1.9rem, auto);
   }
 
   .sale-remove {
