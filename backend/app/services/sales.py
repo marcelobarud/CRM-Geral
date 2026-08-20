@@ -88,6 +88,7 @@ def create_sale(db: Session, payload: VendaCreate) -> Venda:
                 produto_id=product.id,
                 quantidade=item_payload.quantidade,
                 preco_unitario=product.preco_venda,
+                fornecedor_id=product.fornecedor_id,
             )
         )
 
@@ -132,6 +133,7 @@ def sale_to_read(sale: Venda) -> VendaRead:
             VendaItemRead(
                 id=item.id,
                 produto=ProdutoResumo.model_validate(item.produto),
+                fornecedor_id=item.fornecedor_id,
                 quantidade=item.quantidade,
                 preco_unitario=item.preco_unitario,
                 subtotal=calculate_subtotal(

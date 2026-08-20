@@ -17,6 +17,7 @@ const sale = {
   itens: [{
     id: 700,
     produto: { id: 30, nome: 'Produto Histórico' },
+    fornecedor_id: 40,
     quantidade: '1.500',
     preco_unitario: '12.34',
     subtotal: '18.51',

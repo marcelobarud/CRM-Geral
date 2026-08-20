@@ -14,7 +14,7 @@ REQUIRED_TABLES = {
     "vendas",
     "venda_itens",
 }
-EXPECTED_MIGRATION = "20260820_0001"
+EXPECTED_MIGRATION = "20260820_0002"
 
 TEST_DATA_TABLES = (
     "venda_itens",

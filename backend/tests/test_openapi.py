@@ -38,3 +38,10 @@ def test_openapi_lists_sales_routes_and_sale_request_contract() -> None:
         "boolean",
         "null",
     }
+
+    sale_item_read_schema = response.json()["components"]["schemas"]["VendaItemRead"]
+    assert sale_item_read_schema["properties"]["fornecedor_id"]["type"] == "integer"
+    sale_item_create_schema = response.json()["components"]["schemas"][
+        "VendaItemCreate"
+    ]
+    assert "fornecedor_id" not in sale_item_create_schema["properties"]

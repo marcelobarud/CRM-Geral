@@ -95,6 +95,20 @@ def test_sale_schema_accepts_fractional_quantity_and_rejects_price_input() -> No
             ],
         )
 
+    with pytest.raises(ValidationError):
+        VendaCreate(
+            cliente_id=1,
+            funcionario_id=2,
+            data_venda="2026-08-19T10:00:00Z",
+            itens=[
+                {
+                    "produto_id": 3,
+                    "quantidade": "1.000",
+                    "fornecedor_id": 999,
+                }
+            ],
+        )
+
 
 @pytest.mark.parametrize("quantidade", ["0", "-0.001"])
 def test_sale_schema_rejects_non_positive_quantities(quantidade: str) -> None:

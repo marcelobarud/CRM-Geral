@@ -15,11 +15,15 @@ entidades básicas e registro de vendas. A arquitetura deve permitir evolução,
 mas a V1 não deve implementar antecipadamente funcionalidades de versões
 futuras.
 
-Estado atual: a V1 foi implementada e validada nas Fases 1 a 10. O backend
-FastAPI, o frontend React/Vite, o modelo PostgreSQL, as migrations, os CRUDs,
-vendas, dashboard e testes estão presentes no repositório. A validação
-PostgreSQL final foi executada em banco dedicado após a correção do rollback
-de exclusão de venda, com duas execuções consecutivas e `57 passed` em cada.
+Estado atual: a V1 foi implementada e validada nas Fases 1 a 10, e a Fase 11
+foi concluída. A implementação da Fase 12 adicionou o status operacional de
+funcionários, o filtro de funcionários ativos em Nova Venda e a proteção
+backend contra vendas iniciadas por funcionários inativos. A migration da
+Fase 12 utiliza `revision = "20260820_0001"`, com `down_revision =
+"20260818_0001"`, respeitando o limite padrão de 32 caracteres da tabela
+`alembic_version`. A validação PostgreSQL final foi confirmada pelo usuário
+após a correção, incluindo a sequência de migration e duas execuções da
+suíte no banco de teste dedicado.
 
 Princípio central: privilegiar simplicidade sobre abrangência. Não tratar
 CRM genérico como autorização para construir uma plataforma completa.
@@ -146,6 +150,8 @@ Campos opcionais:
 
 - Complemento
 - RG
+- Status operacional (`ativo`), com padrão `true` para novos registros e
+  registros existentes após a migration da Fase 12.
 
 ### Produtos
 
@@ -396,8 +402,10 @@ explicitamente pelo usuário; nessa operação, o backend exclui primeiro e na
 mesma transação exclusivamente os VendaItens daquela venda e depois a Venda.
 Não utilizar cascatas destrutivas a partir de Cliente, Funcionário, Produto ou
 Fornecedor. VendaItem continua com `venda_id` obrigatório, sem `SET NULL`, e
-itens órfãos não são permitidos. Soft delete, campo ativo, arquivamento e
-auditoria de exclusões ficam fora da V1.
+itens órfãos não são permitidos. Soft delete, arquivamento e auditoria de
+exclusões ficam fora da V1. O campo `ativo` foi introduzido posteriormente
+na Fase 12 do `IMPLEMENTATION_PLAN_02.md` como status operacional de
+Funcionários; ele não representa soft delete.
 
 ### Tipos e regras mínimas de dados
 
@@ -418,6 +426,24 @@ Motivo: centralizar segurança, validação, consistência e regras de domínio.
 Consequência: o React consome contratos HTTP/JSON e não conhece as credenciais
 ou a conexão do PostgreSQL.
 
+### Status operacional de Funcionários
+
+Decisão: Funcionários possuem `ativo`, um booleano não nulo com padrão `true`.
+
+Motivo: permitir retirar um funcionário da operação de novas vendas sem
+remover seu cadastro ou quebrar o histórico já registrado.
+
+Consequências:
+
+- novos funcionários nascem ativos;
+- funcionários existentes permanecem ativos após a migration;
+- `GET /api/employees` sem filtro continua incluindo ativos e inativos;
+- `GET /api/employees?active=true` é o filtro mínimo usado por Nova Venda;
+- o backend rejeita novas vendas com funcionário inativo;
+- vendas históricas continuam exibindo o funcionário inativo;
+- a proteção de exclusão de funcionário referenciado permanece inalterada;
+- o PATCH existente permite ativar e inativar o funcionário.
+
 ## 11. Pontos ainda não especificados
 
 As ambiguidades arquiteturais relevantes da V1 estão resolvidas neste
@@ -436,6 +462,11 @@ decisões arquiteturais registradas aqui.
   vendas e dashboard simples.
 - [x] Reexecutar duas vezes a suíte PostgreSQL após a correção do rollback de
   exclusão de venda.
+- [x] Fase 11: correções de UI e consistência visual.
+- [x] Implementação da Fase 12: status de Funcionários, filtro em Nova Venda,
+  bloqueio backend e testes associados.
+- [x] Validação PostgreSQL final da Fase 12 após a correção do identificador
+  da migration.
 - [ ] Funcionalidades fora da V1 permanecem no backlog futuro.
 
 ## 13. Comandos
@@ -453,7 +484,7 @@ apontando para um banco dedicado com sufixo `_test`.
 
 ## 14. Última atualização
 
-Data: 2026-08-19
+Data: 2026-08-20
 
 - Ambiguidades do modelo resolvidas: categoria, funcionário responsável,
   histórico de preço, totais, exclusões e tipos mínimos de dados.
@@ -466,3 +497,12 @@ Data: 2026-08-19
   refletir as decisões aprovadas.
 - Fases 1 a 10 implementadas e validadas; a suíte PostgreSQL passou duas vezes
   consecutivas com `57 passed` em cada execução.
+- Fase 11 concluída com correções de overflow/alinhamento dos itens de Nova
+  Venda e hierarquia visual do Dashboard.
+- Fase 12 implementada com `funcionarios.ativo`, migration reversível,
+  `GET /api/employees?active=true`, PATCH de status, bloqueio de vendas por
+  funcionário inativo e indicação visual no frontend.
+- O identificador inicial da migration excedia `VARCHAR(32)` em
+  `alembic_version`; foi corrigido para `20260820_0001` sem criar migration
+  adicional. A validação PostgreSQL pós-correção foi executada e confirmada
+  pelo usuário.

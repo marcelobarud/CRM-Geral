@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Date, DateTime, Numeric, inspect
+from sqlalchemy import Boolean, Date, DateTime, Integer, Numeric, inspect
 
 from app.models import (
     Cliente,
@@ -57,6 +57,7 @@ EXPECTED_COLUMNS = {
         "produto_id",
         "quantidade",
         "preco_unitario",
+        "fornecedor_id",
     },
 }
 
@@ -104,10 +105,13 @@ def test_money_and_date_types_are_explicit() -> None:
 
     item_price_type = itens.c.preco_unitario.type
     quantity_type = itens.c.quantidade.type
+    supplier_id_type = itens.c.fornecedor_id.type
     assert isinstance(item_price_type, Numeric)
     assert (item_price_type.precision, item_price_type.scale) == (12, 2)
     assert isinstance(quantity_type, Numeric)
     assert (quantity_type.precision, quantity_type.scale) == (12, 3)
+    assert isinstance(supplier_id_type, Integer)
+    assert itens.c.fornecedor_id.nullable is False
     assert isinstance(funcionarios.c.data_nascimento.type, Date)
     assert isinstance(funcionarios.c.ativo.type, Boolean)
     assert funcionarios.c.ativo.nullable is False
@@ -146,6 +150,15 @@ def test_constraints_and_foreign_keys_are_named_and_restrictive() -> None:
         constraint.name
         for constraint in Cliente.metadata.tables["funcionarios"].constraints
     } >= {"uq_funcionarios_cpf"}
+    supplier_foreign_keys = Cliente.metadata.tables[
+        "venda_itens"
+    ].foreign_key_constraints
+    assert any(
+        foreign_key.column_keys == ["fornecedor_id"]
+        and str(foreign_key.elements[0].target_fullname)
+        == "fornecedores.id"
+        for foreign_key in supplier_foreign_keys
+    )
 
     for table in Cliente.metadata.tables.values():
         for foreign_key in table.foreign_key_constraints:

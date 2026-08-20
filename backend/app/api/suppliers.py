@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
-from app.models import Fornecedor, Produto
+from app.models import Fornecedor, Produto, VendaItem
 from app.schemas.suppliers import FornecedorCreate, FornecedorRead, FornecedorUpdate
 
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
@@ -92,6 +92,17 @@ def delete_supplier(
             status_code=409,
             detail="Fornecedor possui produtos relacionados e não pode ser excluído.",
         )
+    has_historical_sales = db.scalar(
+        select(VendaItem.id).where(VendaItem.fornecedor_id == supplier_id)
+    )
+    if has_historical_sales is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Fornecedor possui vendas históricas relacionadas e não pode "
+                "ser excluído."
+            ),
+        )
     db.delete(supplier)
     try:
         db.commit()
@@ -99,6 +110,9 @@ def delete_supplier(
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="Fornecedor possui produtos relacionados e não pode ser excluído.",
+            detail=(
+                "Fornecedor possui produtos ou vendas históricas relacionadas "
+                "e não pode ser excluído."
+            ),
         ) from None
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -65,6 +65,10 @@ def test_can_persist_all_entities_and_multiple_items(session: Session) -> None:
     employee = make_employee()
     product_one = make_product(supplier, "Produto 1")
     product_two = make_product(supplier, "Produto 2")
+    session.add_all([supplier, customer, employee, product_one, product_two])
+    session.flush()
+    assert product_one.fornecedor_id is not None
+    assert product_two.fornecedor_id is not None
     sale = Venda(
         cliente=customer,
         funcionario=employee,
@@ -74,11 +78,13 @@ def test_can_persist_all_entities_and_multiple_items(session: Session) -> None:
                 produto=product_one,
                 quantidade=Decimal("2.000"),
                 preco_unitario=Decimal("15.50"),
+                fornecedor_id=product_one.fornecedor_id,
             ),
             VendaItem(
                 produto=product_two,
                 quantidade=Decimal("1.500"),
                 preco_unitario=Decimal("20.00"),
+                fornecedor_id=product_two.fornecedor_id,
             ),
         ],
     )
@@ -178,6 +184,9 @@ def test_non_positive_quantities_are_rejected(
     customer = make_customer()
     employee = make_employee()
     product = make_product(supplier)
+    session.add_all([supplier, customer, employee, product])
+    session.flush()
+    assert product.fornecedor_id is not None
     sale = Venda(
         cliente=customer,
         funcionario=employee,
@@ -187,6 +196,7 @@ def test_non_positive_quantities_are_rejected(
                 produto=product,
                 quantidade=quantity,
                 preco_unitario=Decimal("15.50"),
+                fornecedor_id=product.fornecedor_id,
             )
         ],
     )
@@ -201,6 +211,9 @@ def test_negative_item_price_is_rejected(session: Session) -> None:
     customer = make_customer()
     employee = make_employee()
     product = make_product(supplier)
+    session.add_all([supplier, customer, employee, product])
+    session.flush()
+    assert product.fornecedor_id is not None
     sale = Venda(
         cliente=customer,
         funcionario=employee,
@@ -210,6 +223,7 @@ def test_negative_item_price_is_rejected(session: Session) -> None:
                 produto=product,
                 quantidade=Decimal("1.000"),
                 preco_unitario=Decimal("-0.01"),
+                fornecedor_id=product.fornecedor_id,
             )
         ],
     )
@@ -273,6 +287,7 @@ def test_invalid_item_sale_foreign_key_is_rejected(session: Session) -> None:
         produto_id=product.id,
         quantidade=Decimal("1.000"),
         preco_unitario=Decimal("15.50"),
+        fornecedor_id=product.fornecedor_id,
     )
     session.add(item)
 
@@ -281,6 +296,7 @@ def test_invalid_item_sale_foreign_key_is_rejected(session: Session) -> None:
 
 
 def test_invalid_item_product_foreign_key_is_rejected(session: Session) -> None:
+    supplier = make_supplier()
     customer = make_customer()
     employee = make_employee()
     sale = Venda(
@@ -288,13 +304,14 @@ def test_invalid_item_product_foreign_key_is_rejected(session: Session) -> None:
         funcionario=employee,
         data_venda=datetime.now(timezone.utc),
     )
-    session.add(sale)
+    session.add_all([supplier, sale])
     session.flush()
     item = VendaItem(
         venda_id=sale.id,
         produto_id=999999,
         quantidade=Decimal("1.000"),
         preco_unitario=Decimal("15.50"),
+        fornecedor_id=supplier.id,
     )
     session.add(item)
 
@@ -307,6 +324,9 @@ def test_referenced_records_cannot_be_deleted(session: Session) -> None:
     customer = make_customer()
     employee = make_employee()
     product = make_product(supplier)
+    session.add_all([supplier, customer, employee, product])
+    session.flush()
+    assert product.fornecedor_id is not None
     sale = Venda(
         cliente=customer,
         funcionario=employee,
@@ -316,6 +336,7 @@ def test_referenced_records_cannot_be_deleted(session: Session) -> None:
                 produto=product,
                 quantidade=Decimal("1.000"),
                 preco_unitario=Decimal("15.50"),
+                fornecedor_id=product.fornecedor_id,
             )
         ],
     )
@@ -333,6 +354,9 @@ def test_referenced_customer_cannot_be_deleted(session: Session) -> None:
     customer = make_customer()
     employee = make_employee()
     product = make_product(supplier)
+    session.add_all([supplier, customer, employee, product])
+    session.flush()
+    assert product.fornecedor_id is not None
     sale = Venda(
         cliente=customer,
         funcionario=employee,
@@ -342,6 +366,7 @@ def test_referenced_customer_cannot_be_deleted(session: Session) -> None:
                 produto=product,
                 quantidade=Decimal("1.000"),
                 preco_unitario=Decimal("15.50"),
+                fornecedor_id=product.fornecedor_id,
             )
         ],
     )
@@ -360,6 +385,10 @@ def test_same_sale_can_have_multiple_items(session: Session) -> None:
     employee = make_employee()
     product_one = make_product(supplier, "Produto 1")
     product_two = make_product(supplier, "Produto 2")
+    session.add_all([supplier, customer, employee, product_one, product_two])
+    session.flush()
+    assert product_one.fornecedor_id is not None
+    assert product_two.fornecedor_id is not None
     sale = Venda(
         cliente=customer,
         funcionario=employee,
@@ -371,11 +400,13 @@ def test_same_sale_can_have_multiple_items(session: Session) -> None:
                 produto=product_one,
                 quantidade=Decimal("1.000"),
                 preco_unitario=Decimal("10.00"),
+                fornecedor_id=product_one.fornecedor_id,
             ),
             VendaItem(
                 produto=product_two,
                 quantidade=Decimal("2.000"),
                 preco_unitario=Decimal("12.00"),
+                fornecedor_id=product_two.fornecedor_id,
             ),
         ]
     )
@@ -396,6 +427,10 @@ def test_delete_sale_removes_items_but_preserves_root_records(
     employee = make_employee()
     product_one = make_product(supplier, "Produto 1")
     product_two = make_product(supplier, "Produto 2")
+    session.add_all([supplier, customer, employee, product_one, product_two])
+    session.flush()
+    assert product_one.fornecedor_id is not None
+    assert product_two.fornecedor_id is not None
     sale = Venda(
         cliente=customer,
         funcionario=employee,
@@ -405,11 +440,13 @@ def test_delete_sale_removes_items_but_preserves_root_records(
                 produto=product_one,
                 quantidade=Decimal("1.000"),
                 preco_unitario=Decimal("15.50"),
+                fornecedor_id=product_one.fornecedor_id,
             ),
             VendaItem(
                 produto=product_two,
                 quantidade=Decimal("2.000"),
                 preco_unitario=Decimal("15.50"),
+                fornecedor_id=product_two.fornecedor_id,
             ),
         ],
     )
@@ -438,6 +475,9 @@ def test_delete_sale_rolls_back_when_commit_fails(
     customer = make_customer()
     employee = make_employee()
     product = make_product(supplier)
+    session.add_all([supplier, customer, employee, product])
+    session.flush()
+    assert product.fornecedor_id is not None
     sale = Venda(
         cliente=customer,
         funcionario=employee,
@@ -447,6 +487,7 @@ def test_delete_sale_rolls_back_when_commit_fails(
                 produto=product,
                 quantidade=Decimal("1.000"),
                 preco_unitario=Decimal("15.50"),
+                fornecedor_id=product.fornecedor_id,
             )
         ],
     )

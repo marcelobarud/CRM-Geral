@@ -188,6 +188,11 @@ class VendaItem(Base):
         Numeric(12, 2),
         nullable=False,
     )
+    fornecedor_id: Mapped[int] = mapped_column(
+        ForeignKey("fornecedores.id"),
+        nullable=False,
+        index=True,
+    )
 
     venda: Mapped[Venda] = relationship(back_populates="itens")
     produto: Mapped[Produto] = relationship(back_populates="itens")

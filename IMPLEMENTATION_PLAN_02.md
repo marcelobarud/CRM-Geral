@@ -346,6 +346,8 @@ V1 concluída.
 
 # 5. Fase 12 — Status ativo/inativo de Funcionários
 
+**Status atual:** concluída.
+
 ## Objetivo
 
 Adicionar controle operacional de ativação e desativação de funcionários.
@@ -439,6 +441,22 @@ Funcionário utilizado em venda continua protegido contra exclusão física.
 - funcionário inativo ausente na seleção de Nova Venda;
 - funcionário inativo presente em venda histórica;
 - regressão de CRUD.
+
+## Resultado da implementação e validação
+
+- migration criada sem alterar a migration original da V1;
+- `funcionarios.ativo` persistido como booleano não nulo com padrão `true`;
+- migration final utiliza `revision = "20260820_0001"` e
+  `down_revision = "20260818_0001"`;
+- o identificador foi corrigido para respeitar o limite de 32 caracteres da
+  tabela `alembic_version`;
+- criação, atualização, leitura, filtro de funcionários ativos e bloqueio de
+  vendas para funcionários inativos implementados;
+- frontend permite ativar/inativar, indica o status e oculta inativos em Nova
+  Venda;
+- validação PostgreSQL real confirmada pelo usuário após a correção, incluindo
+  upgrade, downgrade/upgrade e duas execuções consecutivas da suíte;
+- nenhuma funcionalidade da Fase 13 foi iniciada.
 
 ## Checkpoint sugerido
 
@@ -1306,7 +1324,8 @@ IMPLEMENTATION_PLAN.md
 IMPLEMENTATION_PLAN_02.md
 → planejamento aprovado
 → Fase 11 concluída
-→ Fases 12 a 18 pendentes
+→ Fase 12 concluída
+→ Fases 13 a 18 pendentes
 ```
 
 Fases previstas:

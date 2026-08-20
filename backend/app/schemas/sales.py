@@ -43,6 +43,7 @@ class ProdutoResumo(ReadModel):
 class VendaItemRead(ReadModel):
     id: int
     produto: ProdutoResumo
+    fornecedor_id: int
     quantidade: Decimal
     preco_unitario: Decimal
     subtotal: Decimal
