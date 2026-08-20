@@ -40,10 +40,16 @@ class ProdutoResumo(ReadModel):
     nome: str
 
 
+class FornecedorResumo(ReadModel):
+    id: int
+    nome: str
+
+
 class VendaItemRead(ReadModel):
     id: int
     produto: ProdutoResumo
     fornecedor_id: int
+    fornecedor: FornecedorResumo
     quantidade: Decimal
     preco_unitario: Decimal
     subtotal: Decimal

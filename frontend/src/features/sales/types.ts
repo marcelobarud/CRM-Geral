@@ -27,10 +27,16 @@ export type SaleProductSummary = {
   nome: string
 }
 
+export type SaleSupplierSummary = {
+  id: number
+  nome: string
+}
+
 export type SaleItem = {
   id: number
   produto: SaleProductSummary
   fornecedor_id: number
+  fornecedor: SaleSupplierSummary
   quantidade: DecimalValue
   preco_unitario: DecimalValue
   subtotal: DecimalValue

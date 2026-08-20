@@ -21,9 +21,14 @@ funcionários, o filtro de funcionários ativos em Nova Venda e a proteção
 backend contra vendas iniciadas por funcionários inativos. A migration da
 Fase 12 utiliza `revision = "20260820_0001"`, com `down_revision =
 "20260818_0001"`, respeitando o limite padrão de 32 caracteres da tabela
-`alembic_version`. A validação PostgreSQL final foi confirmada pelo usuário
-após a correção, incluindo a sequência de migration e duas execuções da
-suíte no banco de teste dedicado.
+`alembic_version`. A Fase 13 foi concluída com o snapshot histórico do
+fornecedor em `VendaItem`, incluindo migration, model, serviço, contratos e
+testes. A Fase 14 foi implementada para melhorar a listagem e o detalhamento
+de Vendas: a listagem prioriza Produto, Valor Total, Cliente e Funcionário;
+vendas com múltiplos itens exibem a contagem de produtos; e o detalhe
+apresenta preço, subtotal e fornecedor histórico. A validação PostgreSQL da
+Fase 14 foi confirmada pelo usuário com `63 passed`. A Fase 15 ainda não foi
+iniciada.
 
 Princípio central: privilegiar simplicidade sobre abrangência. Não tratar
 CRM genérico como autorização para construir uma plataforma completa.
@@ -186,6 +191,7 @@ Campos obrigatórios:
 - ID do produto
 - Quantidade
 - Preço unitário
+- ID do fornecedor no momento da venda (`fornecedor_id`)
 
 VendaItem não possui exclusão independente pela interface e não deve existir
 sem uma Venda. `venda_id` permanece obrigatório; não utilizar `SET NULL` nem
@@ -200,6 +206,7 @@ Relacionamentos mínimos:
     vendas.funcionario_id  → funcionarios.id
     venda_itens.venda_id   → vendas.id
     venda_itens.produto_id → produtos.id
+    venda_itens.fornecedor_id → fornecedores.id
     produtos.fornecedor_id → fornecedores.id
 
 O nome do produto não deve ser armazenado como informação redundante em
@@ -275,6 +282,10 @@ O design deve ser:
 - Não persistir valor_total na venda nem nos itens na V1.
 - Não permitir que o histórico de preço de uma venda dependa do preço atual do
   produto.
+- `venda_itens.fornecedor_id` deve preservar o fornecedor associado ao Produto
+  no momento da venda e não pode ser nulo.
+- Alterações posteriores em `produtos.fornecedor_id` não podem modificar o
+  snapshot histórico já persistido em `venda_itens`.
 - A validação de CPF, RG e CNPJ permanece limitada a tipos, unicidade e regras
   básicas; não adicionar bibliotecas externas de validação documental na V1.
 - Campos, tabelas e relacionamentos devem ser adicionados ou alterados por
@@ -376,6 +387,20 @@ operação e persistir uma cópia no item. O nome do produto continua sendo lido
 pela relação com produtos; snapshots de nome ou outros atributos ficam para
 versões futuras.
 
+### Fornecedor histórico do item
+
+Decisão: `venda_itens.fornecedor_id` armazena o fornecedor associado ao Produto
+no momento da criação da venda, com `NOT NULL` e foreign key para
+`fornecedores.id`.
+
+Motivo: preservar a referência histórica mesmo que o fornecedor atual do
+Produto seja alterado posteriormente.
+
+Consequência: o frontend não informa o fornecedor histórico; o backend captura
+`Produto.fornecedor_id` de um Produto persistido. A migration da Fase 13 faz
+backfill dos itens existentes usando o fornecedor atual do Produto no momento
+da migration, que é a única informação disponível para registros anteriores.
+
 ### Totais derivados
 
 Decisão: não persistir valor_total em vendas nem em venda_itens na V1.
@@ -444,6 +469,26 @@ Consequências:
 - a proteção de exclusão de funcionário referenciado permanece inalterada;
 - o PATCH existente permite ativar e inativar o funcionário.
 
+### Listagem e detalhamento de Vendas
+
+Decisão: a leitura operacional de Vendas prioriza Produto, Valor Total,
+Cliente e Funcionário, nessa ordem.
+
+Consequências:
+
+- uma Venda com um único item exibe o nome do Produto;
+- uma Venda com dois ou mais Produtos exibe `<n> produtos`, contando IDs de
+  Produtos distintos;
+- o total continua derivado dos `VendaItens` e de seus preços históricos;
+- o detalhamento exibe quantidade, preço unitário histórico, subtotal e o
+  fornecedor histórico de `VendaItem`;
+- a leitura do fornecedor histórico utiliza `venda_itens.fornecedor_id`, sem
+  reconstruí-lo a partir do fornecedor atual do Produto;
+- o backend carrega Produto e Fornecedor histórico com eager loading para
+  evitar consultas individuais por item;
+- filtros e detalhes relacionais de Cliente ou Fornecedor permanecem fora da
+  Fase 14.
+
 ## 11. Pontos ainda não especificados
 
 As ambiguidades arquiteturais relevantes da V1 estão resolvidas neste
@@ -467,6 +512,10 @@ decisões arquiteturais registradas aqui.
   bloqueio backend e testes associados.
 - [x] Validação PostgreSQL final da Fase 12 após a correção do identificador
   da migration.
+- [x] Fase 13 concluída: snapshot histórico de fornecedor em `VendaItem`,
+  integridade referencial, serviço e testes.
+- [x] Fase 14 concluída: listagem e detalhamento de Vendas com valores
+  históricos, fornecedor histórico e validação PostgreSQL (`63 passed`).
 - [ ] Funcionalidades fora da V1 permanecem no backlog futuro.
 
 ## 13. Comandos
@@ -506,3 +555,19 @@ Data: 2026-08-20
   `alembic_version`; foi corrigido para `20260820_0001` sem criar migration
   adicional. A validação PostgreSQL pós-correção foi executada e confirmada
   pelo usuário.
+- Fase 13 concluída com `venda_itens.fornecedor_id` obrigatório, FK para
+  `fornecedores.id`, backfill da migration `20260820_0002`, captura do snapshot
+  pelo serviço de vendas e proteção de fornecedor historicamente referenciado.
+- Fase 14 implementada com resumo do fornecedor histórico no contrato de
+  leitura, eager loading sem N+1, listagem na ordem Produto/Valor Total/
+  Cliente/Funcionário, contagem de múltiplos produtos e detalhe completo dos
+  itens.
+- A validação local da Fase 14 ficou em `27 passed, 36 skipped, 1 warning` no
+  backend e `34 passed` no frontend; os skips ocorreram porque
+  `TEST_DATABASE_URL` não estava definida. Ruff, lint, typecheck e build
+  passaram.
+- A validação manual confirmou desktop, notebook e mobile próximo de
+  `390 × 844`, sem overflow horizontal; o detalhe foi verificado com 1 e 3
+  itens e a listagem com 1, 2 e 3 produtos.
+- A validação PostgreSQL da Fase 14 foi confirmada pelo usuário com `63 passed`.
+- A Fase 15 não foi iniciada.

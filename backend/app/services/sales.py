@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models import Cliente, Funcionario, Produto, Venda, VendaItem
 from app.schemas.sales import (
     ClienteResumo,
+    FornecedorResumo,
     FuncionarioResumo,
     ProdutoResumo,
     VendaCreate,
@@ -44,7 +45,10 @@ def sale_query():
     return select(Venda).options(
         selectinload(Venda.cliente),
         selectinload(Venda.funcionario),
-        selectinload(Venda.itens).selectinload(VendaItem.produto),
+        selectinload(Venda.itens).options(
+            selectinload(VendaItem.produto),
+            selectinload(VendaItem.fornecedor),
+        ),
     )
 
 
@@ -134,6 +138,7 @@ def sale_to_read(sale: Venda) -> VendaRead:
                 id=item.id,
                 produto=ProdutoResumo.model_validate(item.produto),
                 fornecedor_id=item.fornecedor_id,
+                fornecedor=FornecedorResumo.model_validate(item.fornecedor),
                 quantidade=item.quantidade,
                 preco_unitario=item.preco_unitario,
                 subtotal=calculate_subtotal(

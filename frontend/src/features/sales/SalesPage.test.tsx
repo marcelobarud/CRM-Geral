@@ -18,6 +18,7 @@ const sale = {
     id: 700,
     produto: { id: 30, nome: 'Produto Histórico' },
     fornecedor_id: 40,
+    fornecedor: { id: 40, nome: 'Fornecedor Histórico' },
     quantidade: '1.500',
     preco_unitario: '12.34',
     subtotal: '18.51',
@@ -38,15 +39,37 @@ describe('SalesPage', () => {
   it('renders the list and shows historical prices and totals in details', async () => {
     render(<SalesPage />)
     await screen.findByText('#70')
+    expect(screen.getByText('Produto Histórico')).toBeTruthy()
     expect(screen.getByText('Cliente Histórico')).toBeTruthy()
     expect(screen.getByText('R$ 18,51')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes' }))
     await waitFor(() => expect(salesApi.getSale).toHaveBeenCalledWith(70))
     expect(await screen.findByRole('dialog', { name: 'Detalhes da venda #70' })).toBeTruthy()
-    expect(screen.getByText('Produto Histórico')).toBeTruthy()
-    expect(screen.getByText('1,500 × R$ 12,34')).toBeTruthy()
+    expect(screen.getAllByText('Produto Histórico').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('1,500')).toBeTruthy()
+    expect(screen.getByText('Fornecedor Histórico')).toBeTruthy()
+    expect(screen.getByText('R$ 12,34')).toBeTruthy()
     expect(screen.getAllByText('R$ 18,51').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it.each([
+    [2, '2 produtos'],
+    [3, '3 produtos'],
+  ])('summarizes a sale with %i products in the list', async (itemCount, label) => {
+    const multipleItemSale = {
+      ...sale,
+      itens: Array.from({ length: itemCount }, (_, index) => ({
+        ...sale.itens[0],
+        id: sale.itens[0].id + index,
+        produto: { id: 30 + index, nome: `Produto ${index + 1}` },
+      })),
+    }
+    vi.mocked(salesApi.listSales).mockResolvedValue([multipleItemSale])
+
+    render(<SalesPage />)
+
+    expect(await screen.findByText(label)).toBeTruthy()
   })
 
   it('renders the empty state', async () => {

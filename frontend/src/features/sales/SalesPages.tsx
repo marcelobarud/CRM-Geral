@@ -97,6 +97,12 @@ function saleErrorMessage(error: unknown, fallback: string): string {
   return getApiErrorMessage(error, fallback)
 }
 
+function saleProductLabel(sale: Sale): string {
+  const productNames = new Map(sale.itens.map((item) => [item.produto.id, item.produto.nome]))
+  if (productNames.size === 1) return productNames.values().next().value ?? 'Produto'
+  return `${productNames.size} produtos`
+}
+
 function SaleItemRow({
   item,
   products,
@@ -403,8 +409,31 @@ function SaleDetails({ sale, onDelete }: { sale: Sale; onDelete: () => void }) {
         <div><dt>ID</dt><dd>#{sale.id}</dd></div><div><dt>Data</dt><dd>{formatDate(sale.data_venda)}</dd></div><div><dt>Cliente</dt><dd>{sale.cliente.nome}</dd></div><div><dt>Funcionário</dt><dd>{sale.funcionario.nome_completo}</dd></div>
       </dl>
       <div className="sale-detail-items">
-        <div className="sale-detail-heading"><h3>Itens</h3><span>Preço histórico</span></div>
-        {sale.itens.map((item) => <div className="sale-detail-item" key={item.id}><div><strong>{item.produto.nome}</strong><span>{formatQuantityForDisplay(item.quantidade)} × {formatMoney(item.preco_unitario)}</span></div><strong>{formatMoney(item.subtotal)}</strong></div>)}
+        <div className="sale-detail-heading"><h3>Itens</h3><span>Valores históricos</span></div>
+        {sale.itens.map((item) => (
+          <div className="sale-detail-item" key={item.id}>
+            <div>
+              <span className="sale-detail-field-label">Produto</span>
+              <strong>{item.produto.nome}</strong>
+            </div>
+            <div>
+              <span className="sale-detail-field-label">Quantidade</span>
+              <strong>{formatQuantityForDisplay(item.quantidade)}</strong>
+            </div>
+            <div>
+              <span className="sale-detail-field-label">Preço unitário</span>
+              <strong>{formatMoney(item.preco_unitario)}</strong>
+            </div>
+            <div>
+              <span className="sale-detail-field-label">Subtotal</span>
+              <strong>{formatMoney(item.subtotal)}</strong>
+            </div>
+            <div>
+              <span className="sale-detail-field-label">Fornecedor histórico</span>
+              <strong>{item.fornecedor.nome}</strong>
+            </div>
+          </div>
+        ))}
       </div>
       <div className="sale-detail-total"><span>Total da venda</span><strong>{formatMoney(sale.total)}</strong></div>
       <div className="sale-detail-actions">
@@ -507,7 +536,7 @@ export function SalesPage() {
         <div className="data-card sales-empty-card"><EmptyState title="Nenhuma venda registrada ainda" description="Crie sua primeira venda para começar o histórico operacional." /><a className="button button-primary" href="/sales/new">Criar nova venda</a></div>
       ) : (
         <div className="sales-list">
-          {sales.map((sale) => <article className="sale-list-card" key={sale.id}><div className="sale-list-header"><div><span className="sale-list-kicker">Venda</span><strong>#{sale.id}</strong></div><span className="sale-list-date">{formatDate(sale.data_venda)}</span></div><dl className="sale-list-meta"><div><dt>Cliente</dt><dd>{sale.cliente.nome}</dd></div><div><dt>Funcionário</dt><dd>{sale.funcionario.nome_completo}</dd></div><div><dt>Total</dt><dd className="sale-list-total">{formatMoney(sale.total)}</dd></div></dl><div className="sale-list-actions"><button className="button button-secondary sale-detail-button" type="button" onClick={() => void openSaleDetails(sale.id)}>Ver detalhes</button><button className="button button-danger sale-delete-button" type="button" onClick={() => requestSaleDeletion(sale)}>Excluir venda</button></div></article>)}
+          {sales.map((sale) => <article className="sale-list-card" key={sale.id}><div className="sale-list-header"><div><span className="sale-list-kicker">Venda</span><strong>#{sale.id}</strong></div><span className="sale-list-date">{formatDate(sale.data_venda)}</span></div><dl className="sale-list-meta"><div><dt>Produto</dt><dd className="sale-list-product">{saleProductLabel(sale)}</dd></div><div><dt>Valor Total</dt><dd className="sale-list-total">{formatMoney(sale.total)}</dd></div><div><dt>Cliente</dt><dd>{sale.cliente.nome}</dd></div><div><dt>Funcionário</dt><dd>{sale.funcionario.nome_completo}</dd></div></dl><div className="sale-list-actions"><button className="button button-secondary sale-detail-button" type="button" onClick={() => void openSaleDetails(sale.id)}>Ver detalhes</button><button className="button button-danger sale-delete-button" type="button" onClick={() => requestSaleDeletion(sale)}>Excluir venda</button></div></article>)}
         </div>
       )}
       {selectedSaleId !== null ? <Modal title={`Detalhes da venda #${selectedSaleId}`} description="Os preços abaixo são os valores históricos retornados pelo backend." size="large" onClose={closeDetails}>{detailLoading ? <LoadingState label="Carregando detalhes..." /> : detailError ? <ErrorState description={detailError} onRetry={() => void openSaleDetails(selectedSaleId)} /> : selectedSale ? <SaleDetails sale={selectedSale} onDelete={() => { requestSaleDeletion(selectedSale); closeDetails() }} /> : null}</Modal> : null}

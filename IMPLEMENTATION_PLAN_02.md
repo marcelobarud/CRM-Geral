@@ -456,7 +456,8 @@ Funcionário utilizado em venda continua protegido contra exclusão física.
   Venda;
 - validação PostgreSQL real confirmada pelo usuário após a correção, incluindo
   upgrade, downgrade/upgrade e duas execuções consecutivas da suíte;
-- nenhuma funcionalidade da Fase 13 foi iniciada.
+- naquele checkpoint, a Fase 13 ainda não havia sido iniciada; seu estado atual
+  está registrado na seção da Fase 13 abaixo.
 
 ## Checkpoint sugerido
 
@@ -465,6 +466,8 @@ Funcionário utilizado em venda continua protegido contra exclusão física.
 ---
 
 # 6. Fase 13 — Snapshot histórico de Fornecedor em VendaItem
+
+**Status atual:** concluída.
 
 ## Objetivo
 
@@ -587,6 +590,29 @@ e não remove o Fornecedor.
 - exclusão de Venda preserva Fornecedor;
 - rollback transacional.
 
+## Estado da implementação e validação
+
+- migration `20260820_0002` adiciona `venda_itens.fornecedor_id`, executa o
+  backfill dos registros existentes, aplica `NOT NULL`, FK e índice;
+- o model mantém `VendaItem.fornecedor_id` obrigatório, com FK para
+  `fornecedores.id`;
+- o serviço de criação de vendas captura `Produto.fornecedor_id` persistido e
+  não aceita o fornecedor histórico como autoridade do frontend;
+- contratos, OpenAPI, proteção de exclusão de Fornecedor e testes da Fase 13
+  foram atualizados;
+- os testes de persistência usam `session.add_all(...)` e `session.flush()`
+  antes de capturar o snapshot, incluindo os testes residuais de proteção de
+  Produto e Cliente referenciados;
+- a correção desta pendência alterou somente
+  `backend/tests/test_persistence.py`; nenhum model, migration, serviço,
+  schema ou frontend foi alterado;
+- validação local após a correção: `27 passed, 36 skipped, 1 warning`. Os
+  skips ocorreram porque `TEST_DATABASE_URL` não estava definida;
+- a Fase 13 foi considerada concluída após a validação PostgreSQL registrada
+  no projeto;
+- a Fase 14 está documentada abaixo e permanece restrita à listagem e ao
+  detalhamento de Vendas.
+
 ## Checkpoint sugerido
 
 `feat: preserva fornecedor histórico nos itens de venda`
@@ -594,6 +620,8 @@ e não remove o Fornecedor.
 ---
 
 # 7. Fase 14 — Evolução da listagem e detalhamento de Vendas
+
+**Status atual:** concluída.
 
 ## Objetivo
 
@@ -677,6 +705,32 @@ Nunca reconstruir venda histórica usando `produtos.preco_venda`.
 - detalhe com todos os itens;
 - formatação PT-BR;
 - responsividade.
+
+## Estado da implementação e validação
+
+- o contrato de leitura de `VendaItem` fornece resumo mínimo do fornecedor
+  histórico (`id` e `nome`) além de `fornecedor_id`;
+- o model possui relacionamento somente de leitura para o fornecedor apontado
+  pelo snapshot histórico, e `sale_query()` carrega Produto e Fornecedor
+  histórico com `selectinload`, evitando N+1;
+- a listagem exibe, nesta ordem, Produto, Valor Total, Cliente e Funcionário;
+- uma venda com um item exibe o nome do Produto; com dois ou mais exibe
+  `<n> produtos`, contando Produtos distintos;
+- o detalhe exibe individualmente Produto, Quantidade, Preço unitário
+  histórico, Subtotal e Fornecedor histórico;
+- nenhuma migration, coluna persistida de total/contagem ou regra transacional
+  foi criada nesta fase;
+- testes backend foram ajustados para o contrato histórico e testes frontend
+  cobrem 1, 2 e 3 produtos, total, detalhe, preço histórico, fornecedor
+  histórico, loading, vazio, erro e exclusão;
+- validação local: Ruff passou; backend `27 passed, 36 skipped, 1 warning`;
+  frontend `34 passed`, lint, typecheck e build passaram. Os skips ocorreram
+  porque `TEST_DATABASE_URL` não estava definida;
+- validação manual confirmou listagem e detalhe em desktop, notebook e
+  `390 × 844`, incluindo vendas com 1, 2 e 3 produtos, sem overflow horizontal;
+- a validação PostgreSQL da Fase 14 foi confirmada pelo usuário com
+  `63 passed`;
+- a Fase 15, filtros e detalhes relacionais não foram iniciados.
 
 ## Checkpoint sugerido
 
@@ -1325,7 +1379,9 @@ IMPLEMENTATION_PLAN_02.md
 → planejamento aprovado
 → Fase 11 concluída
 → Fase 12 concluída
-→ Fases 13 a 18 pendentes
+→ Fase 13 concluída
+→ Fase 14 concluída; PostgreSQL validado com `63 passed`
+→ Fases 15 a 18 pendentes e não iniciadas
 ```
 
 Fases previstas:

@@ -196,3 +196,7 @@ class VendaItem(Base):
 
     venda: Mapped[Venda] = relationship(back_populates="itens")
     produto: Mapped[Produto] = relationship(back_populates="itens")
+    fornecedor: Mapped[Fornecedor] = relationship(
+        foreign_keys=[fornecedor_id],
+        viewonly=True,
+    )

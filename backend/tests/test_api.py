@@ -314,6 +314,10 @@ def test_sale_creation_uses_catalog_price_and_calculates_totals(
         "id": product.id,
         "nome": product.nome,
     }
+    assert body["itens"][0]["fornecedor"] == {
+        "id": product.fornecedor_id,
+        "nome": product.fornecedor.nome,
+    }
     assert Decimal(str(body["itens"][0]["quantidade"])) == Decimal("2.500")
     assert Decimal(str(body["itens"][0]["preco_unitario"])) == Decimal("15.50")
     assert body["itens"][0]["fornecedor_id"] == product.fornecedor_id
@@ -365,7 +369,10 @@ def test_sale_item_preserves_supplier_history_when_product_supplier_changes(
 
     historical_sale = client.get(f"/api/sales/{first_sale_id}")
     assert historical_sale.status_code == 200
-    assert historical_sale.json()["itens"][0]["fornecedor_id"] == original_supplier_id
+    historical_item = historical_sale.json()["itens"][0]
+    assert historical_item["fornecedor_id"] == original_supplier_id
+    assert historical_item["fornecedor"]["id"] == original_supplier_id
+    assert historical_item["fornecedor"]["nome"] == "Fornecedor vendas"
 
     second_sale = client.post(
         "/api/sales",
@@ -373,6 +380,14 @@ def test_sale_item_preserves_supplier_history_when_product_supplier_changes(
     )
     assert second_sale.status_code == 201
     assert second_sale.json()["itens"][0]["fornecedor_id"] == second_supplier_id
+    assert (
+        second_sale.json()["itens"][0]["fornecedor"]["id"]
+        == second_supplier_id
+    )
+    assert (
+        second_sale.json()["itens"][0]["fornecedor"]["nome"]
+        == "Segundo fornecedor de histórico"
+    )
 
     assert client.delete(f"/api/suppliers/{original_supplier_id}").status_code == 409
 

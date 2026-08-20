@@ -41,6 +41,9 @@ def test_openapi_lists_sales_routes_and_sale_request_contract() -> None:
 
     sale_item_read_schema = response.json()["components"]["schemas"]["VendaItemRead"]
     assert sale_item_read_schema["properties"]["fornecedor_id"]["type"] == "integer"
+    assert sale_item_read_schema["properties"]["fornecedor"]["$ref"].endswith(
+        "/FornecedorResumo"
+    )
     sale_item_create_schema = response.json()["components"]["schemas"][
         "VendaItemCreate"
     ]
