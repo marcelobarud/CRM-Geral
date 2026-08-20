@@ -124,7 +124,7 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
     - venda_itens.produto_id.
 13. Criar constraints para quantidade maior que zero.
 14. Criar constraints para preços não negativos.
-15. Evitar ON DELETE CASCADE para entidades que possam remover vendas ou itens.
+15. Não usar ON DELETE CASCADE para Cliente, Funcionário, Produto ou Fornecedor; a exclusão de Venda será explícita e restrita aos seus próprios itens.
 16. Criar migrations em ordem dependente, preferencialmente por blocos revisáveis:
     - tabelas de cadastros;
     - produtos;
@@ -182,7 +182,7 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
 6. Garantir que IDs não sejam aceitos como entrada manual na criação.
 7. Retornar 404 para registros inexistentes.
 8. Retornar conflito claro quando exclusão violar integridade referencial.
-9. Não excluir silenciosamente vendas, produtos ou outros dados relacionados.
+9. Não excluir silenciosamente vendas a partir de cadastros raiz; a Venda somente é removida por ação explícita do usuário.
 10. Manter respostas e erros consistentes entre os recursos.
 11. Adicionar testes de unidade e integração por recurso.
 
@@ -232,6 +232,7 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
 14. Retornar os dados necessários para exibir produto, preço unitário, quantidade e totais derivados.
 15. Tratar falhas de validação sem deixar venda parcialmente gravada.
 16. Definir comportamento claro para exclusão de produtos, clientes ou funcionários referenciados.
+17. Permitir exclusão física explícita de uma venda por endpoint próprio, removendo na mesma transação somente seus VendaItens e a Venda.
 
 **Dependências:** Fases 2, 3 e 4.
 
@@ -242,6 +243,8 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
 - Alterar o preço do produto não altera vendas existentes.
 - Totais são calculados sem colunas redundantes.
 - Falhas durante a operação fazem rollback completo.
+- A exclusão explícita de uma Venda remove seus VendaItens e a própria Venda sem remover Cliente, Funcionário, Produto ou Fornecedor.
+- `venda_id` permanece obrigatório e não existem VendaItens órfãos.
 
 **Verificações:**
 - Venda com um item.
@@ -253,6 +256,8 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
 - Alteração posterior do preço do produto.
 - Falha no meio da transação.
 - Consulta dos totais derivados.
+- Exclusão de uma venda com múltiplos itens e preservação dos cadastros raiz.
+- Exclusão de uma venda inexistente retornando 404.
 
 **Riscos:**
 - Confiar no preço enviado pelo frontend.
@@ -391,6 +396,7 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
 11. Criar Lista de vendas.
 12. Exibir dados básicos da venda e seus itens.
 13. Permitir consulta detalhada sem criar recursos de relatório avançado.
+14. Permitir exclusão explícita de uma venda com confirmação clara, removendo também seus itens associados.
 
 **Dependências:** Fases 5, 6 e 7.
 
@@ -401,6 +407,7 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
 - O preço persistido é sempre definido pelo backend.
 - O total apresentado corresponde à soma dos itens.
 - A lista de vendas mostra o histórico sem depender do preço atual do produto.
+- É possível excluir uma venda com confirmação; seus itens são removidos e os cadastros raiz permanecem.
 
 **Verificações:**
 - Venda com um item.
@@ -410,6 +417,7 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
 - Erro de API durante o envio.
 - Tentativa de manipulação do preço no payload.
 - Conferência do histórico após alteração de preço do produto.
+- Confirmação, cancelamento e exclusão de venda com atualização imediata da lista.
 
 **Riscos:**
 - Recalcular ou substituir o preço histórico no frontend.
@@ -569,4 +577,3 @@ Nenhuma funcionalidade fora da V1 foi adicionada ao plano. Permanecem fora do es
 - múltiplos fornecedores por produto.
 
 Nenhum arquivo foi alterado e nenhuma implementação foi executada antes da criação deste plano.
-

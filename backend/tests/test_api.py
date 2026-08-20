@@ -352,6 +352,64 @@ def test_sales_list_and_missing_references_are_handled_atomically(
     assert listed_sale_ids == expected_sale_ids
 
 
+def test_sale_delete_removes_only_sale_and_items_and_preserves_references(
+    client: TestClient,
+    session,
+) -> None:
+    customer, employee, first_product = seed_sale_dependencies(session)
+    second_product = Produto(
+        nome="Segundo produto para exclusão",
+        categoria="Geral",
+        preco_custo=Decimal("4.00"),
+        preco_venda=Decimal("8.25"),
+        fornecedor_id=first_product.fornecedor_id,
+    )
+    session.add(second_product)
+    session.flush()
+
+    sale_payload = {
+        "cliente_id": customer.id,
+        "funcionario_id": employee.id,
+        "data_venda": "2026-08-19T13:00:00Z",
+        "itens": [
+            {"produto_id": first_product.id, "quantidade": "1.000"},
+            {"produto_id": second_product.id, "quantidade": "2.000"},
+        ],
+    }
+    first_response = client.post("/api/sales", json=sale_payload)
+    second_response = client.post(
+        "/api/sales",
+        json={**sale_payload, "data_venda": "2026-08-19T14:00:00Z"},
+    )
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+    first_sale_id = first_response.json()["id"]
+    second_sale_id = second_response.json()["id"]
+
+    delete_response = client.delete(f"/api/sales/{first_sale_id}")
+
+    assert delete_response.status_code == 204
+    assert client.get(f"/api/sales/{first_sale_id}").status_code == 404
+    assert client.get(f"/api/sales/{second_sale_id}").status_code == 200
+    assert session.get(Venda, first_sale_id) is None
+    assert session.scalars(
+        select(VendaItem).where(VendaItem.venda_id == first_sale_id)
+    ).all() == []
+    assert session.get(Venda, second_sale_id) is not None
+    assert session.get(Cliente, customer.id) is not None
+    assert session.get(Funcionario, employee.id) is not None
+    assert session.get(Fornecedor, first_product.fornecedor_id) is not None
+    assert session.get(Produto, first_product.id) is not None
+    assert session.get(Produto, second_product.id) is not None
+
+
+def test_sale_delete_returns_404_for_missing_sale(client: TestClient) -> None:
+    response = client.delete("/api/sales/999999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Venda não encontrada."
+
+
 @pytest.mark.parametrize(
     "items",
     [

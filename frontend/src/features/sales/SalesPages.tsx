@@ -6,14 +6,14 @@ import { FeedbackBanner } from '../../components/FeedbackBanner'
 import { LoadingState } from '../../components/LoadingState'
 import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
-import { getApiErrorMessage } from '../../services/httpClient'
+import { ApiError, getApiErrorMessage } from '../../services/httpClient'
 import { listCustomers } from '../customers/api'
 import type { Customer } from '../customers/types'
 import { listEmployees } from '../employees/api'
 import type { Employee } from '../employees/types'
 import { listProducts } from '../products/api'
 import type { Product } from '../products/types'
-import { createSale, getSale, listSales } from './api'
+import { createSale, deleteSale, getSale, listSales } from './api'
 import type { Sale, SaleCreatePayload } from './types'
 
 type DraftSaleItem = {
@@ -396,7 +396,7 @@ function formatQuantityForDisplay(value: string | number): string {
   return normalizeDecimal(value).replace('.', ',')
 }
 
-function SaleDetails({ sale }: { sale: Sale }) {
+function SaleDetails({ sale, onDelete }: { sale: Sale; onDelete: () => void }) {
   return (
     <div className="sale-details">
       <dl className="detail-grid sale-detail-meta">
@@ -407,6 +407,11 @@ function SaleDetails({ sale }: { sale: Sale }) {
         {sale.itens.map((item) => <div className="sale-detail-item" key={item.id}><div><strong>{item.produto.nome}</strong><span>{formatQuantityForDisplay(item.quantidade)} × {formatMoney(item.preco_unitario)}</span></div><strong>{formatMoney(item.subtotal)}</strong></div>)}
       </div>
       <div className="sale-detail-total"><span>Total da venda</span><strong>{formatMoney(sale.total)}</strong></div>
+      <div className="sale-detail-actions">
+        <button className="button button-danger" type="button" onClick={onDelete}>
+          Excluir venda
+        </button>
+      </div>
     </div>
   )
 }
@@ -419,6 +424,10 @@ export function SalesPage() {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deletingSaleId, setDeletingSaleId] = useState<number | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null)
 
   const loadSales = useCallback(async () => {
     setLoading(true)
@@ -457,20 +466,58 @@ export function SalesPage() {
     setDetailError(null)
   }
 
+  const requestSaleDeletion = (sale: Sale) => {
+    setDeleteTarget(sale)
+    setDeleteError(null)
+  }
+
+  const confirmSaleDeletion = async () => {
+    if (deleteTarget === null) return
+
+    const saleId = deleteTarget.id
+    setDeletingSaleId(saleId)
+    setDeleteError(null)
+    try {
+      await deleteSale(saleId)
+      setSales((current) => current.filter((sale) => sale.id !== saleId))
+      setDeleteTarget(null)
+      setFeedback(`Venda #${saleId} excluída com sucesso.`)
+      if (selectedSaleId === saleId) closeDetails()
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        setSales((current) => current.filter((sale) => sale.id !== saleId))
+        setDeleteTarget(null)
+        setFeedback(`A venda #${saleId} já não estava disponível. A lista foi atualizada.`)
+      } else {
+        setDeleteError(getApiErrorMessage(error, 'Não foi possível excluir a venda. Tente novamente.'))
+      }
+    } finally {
+      setDeletingSaleId(null)
+    }
+  }
+
   return (
     <div className="sales-page">
       <div className="sales-page-header">
         <PageHeader eyebrow="Vendas" title="Vendas" description="Consulte o histórico das vendas e seus preços históricos." />
         <a className="button button-primary" href="/sales/new">+ Nova venda</a>
       </div>
+      {feedback ? <FeedbackBanner kind="success" message={feedback} onDismiss={() => setFeedback(null)} /> : null}
       {loading ? <LoadingState label="Carregando vendas..." /> : error ? <ErrorState description={error} onRetry={() => void loadSales()} /> : sales.length === 0 ? (
         <div className="data-card sales-empty-card"><EmptyState title="Nenhuma venda registrada ainda" description="Crie sua primeira venda para começar o histórico operacional." /><a className="button button-primary" href="/sales/new">Criar nova venda</a></div>
       ) : (
         <div className="sales-list">
-          {sales.map((sale) => <article className="sale-list-card" key={sale.id}><div className="sale-list-header"><div><span className="sale-list-kicker">Venda</span><strong>#{sale.id}</strong></div><span className="sale-list-date">{formatDate(sale.data_venda)}</span></div><dl className="sale-list-meta"><div><dt>Cliente</dt><dd>{sale.cliente.nome}</dd></div><div><dt>Funcionário</dt><dd>{sale.funcionario.nome_completo}</dd></div><div><dt>Total</dt><dd className="sale-list-total">{formatMoney(sale.total)}</dd></div></dl><button className="button button-secondary sale-detail-button" type="button" onClick={() => void openSaleDetails(sale.id)}>Ver detalhes</button></article>)}
+          {sales.map((sale) => <article className="sale-list-card" key={sale.id}><div className="sale-list-header"><div><span className="sale-list-kicker">Venda</span><strong>#{sale.id}</strong></div><span className="sale-list-date">{formatDate(sale.data_venda)}</span></div><dl className="sale-list-meta"><div><dt>Cliente</dt><dd>{sale.cliente.nome}</dd></div><div><dt>Funcionário</dt><dd>{sale.funcionario.nome_completo}</dd></div><div><dt>Total</dt><dd className="sale-list-total">{formatMoney(sale.total)}</dd></div></dl><div className="sale-list-actions"><button className="button button-secondary sale-detail-button" type="button" onClick={() => void openSaleDetails(sale.id)}>Ver detalhes</button><button className="button button-danger sale-delete-button" type="button" onClick={() => requestSaleDeletion(sale)}>Excluir venda</button></div></article>)}
         </div>
       )}
-      {selectedSaleId !== null ? <Modal title={`Detalhes da venda #${selectedSaleId}`} description="Os preços abaixo são os valores históricos retornados pelo backend." size="large" onClose={closeDetails}>{detailLoading ? <LoadingState label="Carregando detalhes..." /> : detailError ? <ErrorState description={detailError} onRetry={() => void openSaleDetails(selectedSaleId)} /> : selectedSale ? <SaleDetails sale={selectedSale} /> : null}</Modal> : null}
+      {selectedSaleId !== null ? <Modal title={`Detalhes da venda #${selectedSaleId}`} description="Os preços abaixo são os valores históricos retornados pelo backend." size="large" onClose={closeDetails}>{detailLoading ? <LoadingState label="Carregando detalhes..." /> : detailError ? <ErrorState description={detailError} onRetry={() => void openSaleDetails(selectedSaleId)} /> : selectedSale ? <SaleDetails sale={selectedSale} onDelete={() => { requestSaleDeletion(selectedSale); closeDetails() }} /> : null}</Modal> : null}
+      {deleteTarget ? <Modal title={`Excluir venda #${deleteTarget.id}?`} description="Esta ação removerá a venda e todos os itens associados a ela. Clientes, funcionários e produtos não serão excluídos." onClose={() => setDeleteTarget(null)}>
+        {deleteError ? <FeedbackBanner kind="error" message={deleteError} /> : null}
+        <div className="confirm-actions">
+          <button className="button button-secondary" type="button" onClick={() => setDeleteTarget(null)} disabled={deletingSaleId !== null}>Cancelar</button>
+          <button className="button button-danger" type="button" onClick={() => void confirmSaleDeletion()} disabled={deletingSaleId !== null}>{deletingSaleId !== null ? 'Excluindo...' : 'Excluir venda'}</button>
+        </div>
+      </Modal> : null}
     </div>
   )
 }

@@ -5,9 +5,11 @@ from app.db.session import get_db_session
 from app.models import Venda
 from app.schemas.sales import VendaCreate, VendaRead
 from app.services.sales import (
+    SaleNotFound,
     SalePersistenceError,
     SaleReferenceNotFound,
     create_sale,
+    delete_sale,
     get_sale,
     sale_query,
     sale_to_read,
@@ -50,3 +52,19 @@ def get_sale_endpoint(
     if sale is None:
         raise HTTPException(status_code=404, detail="Venda não encontrada.")
     return sale_to_read(sale)
+
+
+@router.delete("/{sale_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_sale_endpoint(
+    sale_id: int,
+    db: Session = Depends(get_db_session),
+) -> None:
+    try:
+        delete_sale(db, sale_id)
+    except SaleNotFound as exception:
+        raise HTTPException(status_code=404, detail=str(exception)) from None
+    except SalePersistenceError:
+        raise HTTPException(
+            status_code=409,
+            detail="Não foi possível excluir a venda por conflito de integridade.",
+        ) from None

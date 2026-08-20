@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -23,6 +23,10 @@ class SaleReferenceNotFound(Exception):
 
 class SalePersistenceError(Exception):
     """Indica falha controlada ao persistir uma venda."""
+
+
+class SaleNotFound(Exception):
+    """Indica uma venda inexistente durante uma operação de venda."""
 
 
 def calculate_subtotal(quantity: Decimal, unit_price: Decimal) -> Decimal:
@@ -93,6 +97,23 @@ def create_sale(db: Session, payload: VendaCreate) -> Venda:
     if persisted_sale is None:
         raise SalePersistenceError
     return persisted_sale
+
+
+def delete_sale(db: Session, sale_id: int) -> None:
+    sale = db.get(Venda, sale_id)
+    if sale is None:
+        raise SaleNotFound("Venda não encontrada.")
+
+    try:
+        db.execute(delete(VendaItem).where(VendaItem.venda_id == sale_id))
+        db.delete(sale)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise SalePersistenceError from None
+    except Exception:
+        db.rollback()
+        raise
 
 
 def sale_to_read(sale: Venda) -> VendaRead:

@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Cliente, Fornecedor, Funcionario, Produto, Venda, VendaItem
+from app.services.sales import delete_sale
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("TEST_DATABASE_URL"),
@@ -385,3 +386,83 @@ def test_same_sale_can_have_multiple_items(session: Session) -> None:
         select(func.count(VendaItem.id)).where(VendaItem.venda_id == sale.id)
     )
     assert item_count == 2
+
+
+def test_delete_sale_removes_items_but_preserves_root_records(
+    session: Session,
+) -> None:
+    supplier = make_supplier()
+    customer = make_customer()
+    employee = make_employee()
+    product_one = make_product(supplier, "Produto 1")
+    product_two = make_product(supplier, "Produto 2")
+    sale = Venda(
+        cliente=customer,
+        funcionario=employee,
+        data_venda=datetime.now(timezone.utc),
+        itens=[
+            VendaItem(
+                produto=product_one,
+                quantidade=Decimal("1.000"),
+                preco_unitario=Decimal("15.50"),
+            ),
+            VendaItem(
+                produto=product_two,
+                quantidade=Decimal("2.000"),
+                preco_unitario=Decimal("15.50"),
+            ),
+        ],
+    )
+    session.add(sale)
+    session.commit()
+    sale_id = sale.id
+
+    delete_sale(session, sale_id)
+
+    assert session.get(Venda, sale_id) is None
+    assert session.scalars(
+        select(VendaItem).where(VendaItem.venda_id == sale_id)
+    ).all() == []
+    assert session.get(Cliente, customer.id) is not None
+    assert session.get(Funcionario, employee.id) is not None
+    assert session.get(Fornecedor, supplier.id) is not None
+    assert session.get(Produto, product_one.id) is not None
+    assert session.get(Produto, product_two.id) is not None
+
+
+def test_delete_sale_rolls_back_when_commit_fails(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    supplier = make_supplier()
+    customer = make_customer()
+    employee = make_employee()
+    product = make_product(supplier)
+    sale = Venda(
+        cliente=customer,
+        funcionario=employee,
+        data_venda=datetime.now(timezone.utc),
+        itens=[
+            VendaItem(
+                produto=product,
+                quantidade=Decimal("1.000"),
+                preco_unitario=Decimal("15.50"),
+            )
+        ],
+    )
+    session.add(sale)
+    session.commit()
+    sale_id = sale.id
+
+    def fail_commit() -> None:
+        raise RuntimeError("falha simulada")
+
+    monkeypatch.setattr(session, "commit", fail_commit)
+
+    with pytest.raises(RuntimeError, match="falha simulada"):
+        delete_sale(session, sale_id)
+
+    assert session.get(Venda, sale_id) is not None
+    assert len(session.scalars(
+        select(VendaItem).where(VendaItem.venda_id == sale_id)
+    ).all()) == 1

@@ -165,6 +165,10 @@ Campos obrigatórios:
 - ID do funcionário
 - Data da venda
 
+Exclusão explícita de uma venda remove a própria venda e todos os seus itens
+da venda. Essa operação não remove os cadastros raiz referenciados: cliente,
+funcionário, produto e fornecedor permanecem existentes.
+
 ### Itens da venda
 
 Campos obrigatórios:
@@ -174,6 +178,10 @@ Campos obrigatórios:
 - ID do produto
 - Quantidade
 - Preço unitário
+
+VendaItem não possui exclusão independente pela interface e não deve existir
+sem uma Venda. `venda_id` permanece obrigatório; não utilizar `SET NULL` nem
+criar itens órfãos.
 
 Uma venda deve ser separada de seus itens. Assim, uma venda pode conter
 múltiplos produtos sem repetir ou conflitar o ID da venda.
@@ -373,16 +381,21 @@ total da venda é a soma dos totais derivados de seus itens.
 ### Exclusão física com integridade referencial
 
 Decisão: exclusões podem ser físicas na V1, desde que não removam
-silenciosamente dados relacionados.
+silenciosamente dados relacionados. Cadastros raiz referenciados permanecem
+protegidos contra exclusão quando possuem dependências.
 
 Motivo: manter a V1 simples e preservar a integridade e o histórico das
 vendas.
 
 Consequência: quando um registro estiver referenciado e sua remoção
 comprometer a integridade ou o histórico, o backend deve impedir a exclusão e
-retornar uma resposta clara para a interface. Não utilizar cascatas que
-apaguem vendas ou outros dados relacionados. Soft delete, campo ativo,
-arquivamento e auditoria de exclusões ficam fora da V1.
+retornar uma resposta clara para a interface. A Venda pode ser excluída
+explicitamente pelo usuário; nessa operação, o backend exclui primeiro e na
+mesma transação exclusivamente os VendaItens daquela venda e depois a Venda.
+Não utilizar cascatas destrutivas a partir de Cliente, Funcionário, Produto ou
+Fornecedor. VendaItem continua com `venda_id` obrigatório, sem `SET NULL`, e
+itens órfãos não são permitidos. Soft delete, campo ativo, arquivamento e
+auditoria de exclusões ficam fora da V1.
 
 ### Tipos e regras mínimas de dados
 
@@ -432,6 +445,9 @@ Data: 2026-08-18
 
 - Ambiguidades do modelo resolvidas: categoria, funcionário responsável,
   histórico de preço, totais, exclusões e tipos mínimos de dados.
+- Regra de exclusão de vendas formalizada: excluir uma Venda remove somente a
+  Venda e seus VendaItens; Cliente, Funcionário, Produto e Fornecedor
+  permanecem preservados.
 - Obrigatoriedade, opcionalidade e nulabilidade dos campos da V1 formalizadas;
   RG permanece opcional.
 - Modelo de Vendas, relacionamentos e regras de domínio atualizados para
