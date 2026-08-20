@@ -465,6 +465,12 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
 
 ## Fase 10 — Validação final da V1
 
+**Status atual:** concluída.
+
+A validação PostgreSQL final foi executada em banco dedicado com migration
+aplicada e duas execuções consecutivas da suíte. Ambas terminaram com `57
+passed` e `16 warnings`, sem falhas ou skips.
+
 **Objetivo:** verificar que a aplicação está funcional, segura e coerente com o contexto aprovado.
 
 **Tarefas:**
@@ -487,7 +493,8 @@ O plano abaixo segue exclusivamente as decisões de AI_CONTEXT.md e as regras de
 **Dependências:** Fases 1 a 9.
 
 **Critérios de conclusão:**
-- Testes principais passam.
+- Testes principais passam, incluindo duas execuções consecutivas da suíte
+  PostgreSQL após a última correção.
 - Lint, typecheck e build passam.
 - Migrations funcionam em banco limpo.
 - Fluxo de venda funciona de ponta a ponta.
@@ -576,4 +583,6 @@ Nenhuma funcionalidade fora da V1 foi adicionada ao plano. Permanecem fora do es
 - cargos e data de admissão;
 - múltiplos fornecedores por produto.
 
-Nenhum arquivo foi alterado e nenhuma implementação foi executada antes da criação deste plano.
+Estado atual da implementação: as Fases 1 a 9 foram implementadas e a Fase 10
+foi concluída após a validação PostgreSQL final. A V1 pode ser considerada
+concluída dentro do escopo aprovado.

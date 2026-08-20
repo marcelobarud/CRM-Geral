@@ -15,9 +15,11 @@ entidades básicas e registro de vendas. A arquitetura deve permitir evolução,
 mas a V1 não deve implementar antecipadamente funcionalidades de versões
 futuras.
 
-Estado atual: as decisões de produto e arquitetura estão sendo consolidadas.
-A aplicação ainda não deve ser inicializada ou implementada como parte da
-atualização deste contexto.
+Estado atual: a V1 foi implementada e validada nas Fases 1 a 10. O backend
+FastAPI, o frontend React/Vite, o modelo PostgreSQL, as migrations, os CRUDs,
+vendas, dashboard e testes estão presentes no repositório. A validação
+PostgreSQL final foi executada em banco dedicado após a correção do rollback
+de exclusão de venda, com duas execuções consecutivas e `57 passed` em cada.
 
 Princípio central: privilegiar simplicidade sobre abrangência. Não tratar
 CRM genérico como autorização para construir uma plataforma completa.
@@ -426,22 +428,32 @@ Detalhes de implementação, como comprimentos exatos de strings e formatos de
 contratos da API, podem ser definidos durante a implementação sem alterar as
 decisões arquiteturais registradas aqui.
 
-## 12. Backlog orientativo
+## 12. Estado de implementação e backlog orientativo
 
-- [ ] Criar o bootstrap do monorepo quando houver solicitação explícita.
-- [ ] Definir contratos iniciais da API.
-- [ ] Implementar migrations e modelos da V1.
-- [ ] Implementar validações, endpoints e testes principais.
-- [ ] Implementar a interface administrativa.
+- [x] Bootstrap do monorepo, frontend e backend executáveis.
+- [x] Contratos iniciais da API, migrations e modelos da V1.
+- [x] Validações, endpoints, testes principais, telas administrativas,
+  vendas e dashboard simples.
+- [x] Reexecutar duas vezes a suíte PostgreSQL após a correção do rollback de
+  exclusão de venda.
+- [ ] Funcionalidades fora da V1 permanecem no backlog futuro.
 
 ## 13. Comandos
 
-Os comandos de instalação, desenvolvimento, testes, lint, typecheck e build
-ainda não estão definidos porque a aplicação não foi inicializada.
+Os comandos principais estão documentados em `README.md`. No backend, use os
+executáveis da `.venv` sem ativar a virtualenv:
+
+```powershell
+.\.venv\Scripts\alembic.exe upgrade head
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Os testes PostgreSQL exigem `TEST_DATABASE_URL` fornecida externamente e
+apontando para um banco dedicado com sufixo `_test`.
 
 ## 14. Última atualização
 
-Data: 2026-08-18
+Data: 2026-08-19
 
 - Ambiguidades do modelo resolvidas: categoria, funcionário responsável,
   histórico de preço, totais, exclusões e tipos mínimos de dados.
@@ -452,3 +464,5 @@ Data: 2026-08-18
   RG permanece opcional.
 - Modelo de Vendas, relacionamentos e regras de domínio atualizados para
   refletir as decisões aprovadas.
+- Fases 1 a 10 implementadas e validadas; a suíte PostgreSQL passou duas vezes
+  consecutivas com `57 passed` em cada execução.
