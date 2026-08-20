@@ -9,6 +9,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -17,6 +18,7 @@ from sqlalchemy import (
     Numeric,
     String,
     UniqueConstraint,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -77,6 +79,12 @@ class Funcionario(Base):
     data_nascimento: Mapped[date] = mapped_column(Date, nullable=False)
     complemento: Mapped[str | None] = mapped_column(String(255), nullable=True)
     rg: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    ativo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=true(),
+    )
 
     vendas: Mapped[list["Venda"]] = relationship(
         back_populates="funcionario",

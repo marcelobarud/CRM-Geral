@@ -736,6 +736,26 @@
   font-size: 0.72rem;
 }
 
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.status-badge-active {
+  color: #28694f;
+  background: var(--green-soft);
+}
+
+.status-badge-inactive {
+  color: #9e4747;
+  background: var(--red-soft);
+}
+
 .table-actions {
   display: flex;
   justify-content: flex-end;

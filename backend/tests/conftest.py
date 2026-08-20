@@ -14,6 +14,7 @@ REQUIRED_TABLES = {
     "vendas",
     "venda_itens",
 }
+EXPECTED_MIGRATION = "20260820_0001"
 
 TEST_DATA_TABLES = (
     "venda_itens",
@@ -66,9 +67,9 @@ def test_engine():
             .scalars()
             .all()
         )
-        if applied_versions != {"20260818_0001"}:
+        if applied_versions != {EXPECTED_MIGRATION}:
             engine.dispose()
-            pytest.fail("A migration da Fase 3 não está aplicada em head")
+            pytest.fail("A migration da Fase 12 não está aplicada em head")
     yield engine
     engine.dispose()
 

@@ -36,7 +36,10 @@ const employee = {
   cpf: '12345678901',
   rg: null,
   data_nascimento: '1990-01-01',
+  ativo: true,
 }
+
+const inactiveEmployee = { ...employee, id: 21, nome_completo: 'Funcionário Inativo', ativo: false }
 
 const products = [
   { id: 30, nome: 'Produto A', categoria: 'Categoria', preco_custo: '5.00', preco_venda: '10.00', fornecedor_id: 1 },
@@ -99,6 +102,16 @@ describe('NewSalePage', () => {
     expect(payload.itens[0]).not.toHaveProperty('subtotal')
     expect(payload).not.toHaveProperty('total')
     expect(screen.getByText('Venda #99 criada com sucesso. Total confirmado: R$ 50,00.')).toBeTruthy()
+  })
+
+  it('requests only active employees for a new sale', async () => {
+    vi.mocked(employeesApi.listEmployees).mockImplementation(async (activeOnly = false) => activeOnly ? [employee] : [employee, inactiveEmployee])
+    render(<NewSalePage />)
+    await screen.findByLabelText('Funcionário')
+
+    expect(employeesApi.listEmployees).toHaveBeenCalledWith(true)
+    expect(screen.getByRole('option', { name: employee.nome_completo })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: inactiveEmployee.nome_completo })).toBeNull()
   })
 
   it('prevents duplicate products in item selectors', async () => {

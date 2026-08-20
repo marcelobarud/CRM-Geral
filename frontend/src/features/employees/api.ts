@@ -1,8 +1,8 @@
 import { request, requestJson } from '../../services/httpClient'
 import type { Employee, EmployeePayload } from './types'
 
-export function listEmployees(): Promise<Employee[]> {
-  return request<Employee[]>('/api/employees')
+export function listEmployees(activeOnly = false): Promise<Employee[]> {
+  return request<Employee[]>(activeOnly ? '/api/employees?active=true' : '/api/employees')
 }
 
 export function getEmployee(id: number): Promise<Employee> {

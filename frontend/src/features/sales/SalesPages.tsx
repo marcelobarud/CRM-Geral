@@ -191,7 +191,7 @@ export function NewSalePage() {
     try {
       const [customerList, employeeList, productList] = await Promise.all([
         listCustomers(),
-        listEmployees(),
+        listEmployees(true),
         listProducts(),
       ])
       setCustomers(customerList)

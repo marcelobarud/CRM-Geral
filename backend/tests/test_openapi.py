@@ -26,3 +26,15 @@ def test_openapi_lists_sales_routes_and_sale_request_contract() -> None:
         "itens",
     }
     assert "preco_unitario" not in sale_schema["properties"]
+
+    employee_schema = response.json()["components"]["schemas"]["FuncionarioRead"]
+    assert employee_schema["properties"]["ativo"]["type"] == "boolean"
+    employee_update_schema = response.json()["components"]["schemas"][
+        "FuncionarioUpdate"
+    ]
+    assert {
+        item["type"] for item in employee_update_schema["properties"]["ativo"]["anyOf"]
+    } == {
+        "boolean",
+        "null",
+    }

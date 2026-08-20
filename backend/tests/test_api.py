@@ -150,6 +150,7 @@ def test_employee_crud_duplicate_cpf_optional_fields_and_referenced_delete(
     employee_id = response.json()["id"]
     assert response.json()["rg"] is None
     assert response.json()["complemento"] is None
+    assert response.json()["ativo"] is True
     assert client.get("/api/employees").status_code == 200
     assert client.get(f"/api/employees/{employee_id}").status_code == 200
 
@@ -170,6 +171,56 @@ def test_employee_crud_duplicate_cpf_optional_fields_and_referenced_delete(
 
     delete_response = client.delete(f"/api/employees/{employee_id}")
     assert delete_response.status_code == 409
+
+
+def test_employee_status_filters_new_sales_and_preserves_history(
+    client: TestClient,
+    session,
+) -> None:
+    customer, employee, product = seed_sale_dependencies(session)
+
+    assert client.get("/api/employees?active=true").json() == [
+        client.get(f"/api/employees/{employee.id}").json()
+    ]
+    deactivate_response = client.patch(
+        f"/api/employees/{employee.id}",
+        json={"ativo": False},
+    )
+    assert deactivate_response.status_code == 200
+    assert deactivate_response.json()["ativo"] is False
+    assert client.get("/api/employees?active=true").json() == []
+    assert client.get("/api/employees").json()[0]["ativo"] is False
+
+    sale_payload = {
+        "cliente_id": customer.id,
+        "funcionario_id": employee.id,
+        "data_venda": "2026-08-19T15:00:00Z",
+        "itens": [{"produto_id": product.id, "quantidade": "1.000"}],
+    }
+    rejected = client.post("/api/sales", json=sale_payload)
+    assert rejected.status_code == 422
+    assert "inativo" in rejected.json()["detail"]
+    assert session.scalars(select(Venda)).all() == []
+
+    reactivate_response = client.patch(
+        f"/api/employees/{employee.id}",
+        json={"ativo": True},
+    )
+    assert reactivate_response.status_code == 200
+    assert reactivate_response.json()["ativo"] is True
+    assert client.get("/api/employees?active=true").json()[0]["id"] == employee.id
+
+    created = client.post("/api/sales", json=sale_payload)
+    assert created.status_code == 201
+    sale_id = created.json()["id"]
+
+    client.patch(f"/api/employees/{employee.id}", json={"ativo": False})
+    history = client.get(f"/api/sales/{sale_id}")
+    assert history.status_code == 200
+    assert history.json()["funcionario"]["id"] == employee.id
+    assert client.delete(f"/api/employees/{employee.id}").status_code == 409
+    assert client.delete(f"/api/sales/{sale_id}").status_code == 204
+    assert client.delete(f"/api/employees/{employee.id}").status_code == 204
 
 
 def test_product_crud_supplier_validation_and_referenced_delete(

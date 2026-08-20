@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -27,8 +27,14 @@ def ensure_unique_cpf(
 
 
 @router.get("", response_model=list[FuncionarioRead])
-def list_employees(db: Session = Depends(get_db_session)) -> list[Funcionario]:
-    return list(db.scalars(select(Funcionario).order_by(Funcionario.id)).all())
+def list_employees(
+    active: bool | None = Query(default=None),
+    db: Session = Depends(get_db_session),
+) -> list[Funcionario]:
+    query = select(Funcionario)
+    if active is not None:
+        query = query.where(Funcionario.ativo == active)
+    return list(db.scalars(query.order_by(Funcionario.id)).all())
 
 
 @router.get("/{employee_id}", response_model=FuncionarioRead)

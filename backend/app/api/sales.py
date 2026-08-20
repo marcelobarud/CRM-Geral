@@ -5,6 +5,7 @@ from app.db.session import get_db_session
 from app.models import Venda
 from app.schemas.sales import VendaCreate, VendaRead
 from app.services.sales import (
+    SaleEmployeeInactive,
     SaleNotFound,
     SalePersistenceError,
     SaleReferenceNotFound,
@@ -27,6 +28,8 @@ def create_sale_endpoint(
         sale = create_sale(db, payload)
     except SaleReferenceNotFound as exception:
         raise HTTPException(status_code=404, detail=str(exception)) from None
+    except SaleEmployeeInactive as exception:
+        raise HTTPException(status_code=422, detail=str(exception)) from None
     except SalePersistenceError:
         raise HTTPException(
             status_code=409,

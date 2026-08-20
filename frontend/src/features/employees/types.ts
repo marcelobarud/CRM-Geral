@@ -9,6 +9,7 @@ export type Employee = {
   cpf: string
   rg: string | null
   data_nascimento: string
+  ativo: boolean
 }
 
-export type EmployeePayload = Omit<Employee, 'id'>
+export type EmployeePayload = Omit<Employee, 'id' | 'ativo'> & { ativo?: boolean }

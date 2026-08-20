@@ -27,6 +27,7 @@ class FuncionarioUpdate(APIModel):
     cpf: str | None = Field(default=None, min_length=1, max_length=14)
     rg: str | None = Field(default=None, max_length=20)
     data_nascimento: date | None = None
+    ativo: bool | None = None
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "FuncionarioUpdate":
@@ -38,6 +39,7 @@ class FuncionarioUpdate(APIModel):
             "numero",
             "cpf",
             "data_nascimento",
+            "ativo",
         )
         for field_name in required_fields:
             if (
@@ -59,3 +61,4 @@ class FuncionarioRead(ReadModel):
     cpf: str
     rg: str | None = None
     data_nascimento: date
+    ativo: bool

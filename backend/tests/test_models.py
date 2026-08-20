@@ -1,4 +1,4 @@
-from sqlalchemy import Date, DateTime, Numeric, inspect
+from sqlalchemy import Boolean, Date, DateTime, Numeric, inspect
 
 from app.models import (
     Cliente,
@@ -40,6 +40,7 @@ EXPECTED_COLUMNS = {
         "data_nascimento",
         "complemento",
         "rg",
+        "ativo",
     },
     "produtos": {
         "id",
@@ -108,6 +109,10 @@ def test_money_and_date_types_are_explicit() -> None:
     assert isinstance(quantity_type, Numeric)
     assert (quantity_type.precision, quantity_type.scale) == (12, 3)
     assert isinstance(funcionarios.c.data_nascimento.type, Date)
+    assert isinstance(funcionarios.c.ativo.type, Boolean)
+    assert funcionarios.c.ativo.nullable is False
+    assert funcionarios.c.ativo.default.arg is True
+    assert funcionarios.c.ativo.server_default is not None
     assert isinstance(vendas.c.data_venda.type, DateTime)
     assert vendas.c.data_venda.type.timezone is True
 

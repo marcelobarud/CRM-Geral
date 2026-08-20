@@ -59,6 +59,7 @@ const employee = {
   cpf: '123.456.789-00',
   rg: null,
   data_nascimento: '1990-01-01',
+  ativo: true,
 }
 
 const product = {
@@ -72,7 +73,7 @@ const product = {
 
 const { id: _customerId, ...customerPayload } = customer
 const { id: _supplierId, ...supplierPayload } = supplier
-const { id: _employeeId, ...employeePayload } = employee
+const { id: _employeeId, ativo: _employeeActive, ...employeePayload } = employee
 const { id: _productId, ...productPayload } = product
 
 function response(body: unknown, status = 200): Response {
@@ -172,6 +173,15 @@ describe('employees API', () => {
 
     fetchMock.mockResolvedValueOnce(response(null, 204))
     await expect(deleteEmployee(employee.id)).resolves.toBeUndefined()
+  })
+
+  it('supports the active-only listing used by new sales', async () => {
+    const fetchMock = mockFetch(response([employee]))
+    await expect(listEmployees(true)).resolves.toEqual([employee])
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/employees?active=true',
+      expect.objectContaining({ headers: expect.objectContaining({ Accept: 'application/json' }) }),
+    )
   })
 
   it('exposes duplicate CPF errors without replacing them with a generic message', async () => {

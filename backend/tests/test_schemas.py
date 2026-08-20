@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.customers import ClienteCreate, ClienteUpdate
-from app.schemas.employees import FuncionarioCreate
+from app.schemas.employees import FuncionarioCreate, FuncionarioRead, FuncionarioUpdate
 from app.schemas.products import ProdutoCreate
 from app.schemas.sales import VendaCreate
 
@@ -46,6 +46,24 @@ def test_employee_schema_keeps_rg_and_complement_optional() -> None:
 
     assert employee.rg is None
     assert employee.complemento is None
+
+
+def test_employee_status_defaults_on_create_and_is_editable_on_patch() -> None:
+    employee = FuncionarioCreate(
+        nome_completo="Funcionário",
+        cidade="São Paulo",
+        estado="SP",
+        rua="Rua A",
+        numero="10",
+        cpf="123.456.789-09",
+        data_nascimento=date(1990, 1, 1),
+    )
+    assert "ativo" not in employee.model_dump()
+    assert FuncionarioUpdate(ativo=False).ativo is False
+    assert FuncionarioUpdate(ativo=True).ativo is True
+
+    read_fields = FuncionarioRead.model_fields
+    assert "ativo" in read_fields
 
 
 def test_patch_schema_rejects_null_required_fields() -> None:

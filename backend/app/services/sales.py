@@ -21,6 +21,10 @@ class SaleReferenceNotFound(Exception):
     """Indica uma referência de venda inexistente."""
 
 
+class SaleEmployeeInactive(Exception):
+    """Indica que um funcionário inativo tentou iniciar uma venda."""
+
+
 class SalePersistenceError(Exception):
     """Indica falha controlada ao persistir uma venda."""
 
@@ -56,6 +60,10 @@ def create_sale(db: Session, payload: VendaCreate) -> Venda:
     employee = db.get(Funcionario, payload.funcionario_id)
     if employee is None:
         raise SaleReferenceNotFound("Funcionário não encontrado.")
+    if not employee.ativo:
+        raise SaleEmployeeInactive(
+            "Funcionário inativo não pode realizar novas vendas."
+        )
 
     product_ids = [item.produto_id for item in payload.itens]
     products = {

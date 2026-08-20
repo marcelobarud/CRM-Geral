@@ -72,6 +72,7 @@ const employee = {
   cpf: '123.456.789-00',
   rg: null,
   data_nascimento: '1990-01-01',
+  ativo: true,
 }
 
 const product = {
@@ -134,6 +135,20 @@ describe('edição dos cadastros', () => {
     await waitFor(() => expect(employeeApi.updateEmployee).toHaveBeenCalled())
     expect(employeeApi.updateEmployee).toHaveBeenCalledWith(4, expect.objectContaining({ rg: null, complemento: null }))
     expect(employeeApi.updateEmployee).toHaveBeenCalledWith(4, expect.not.objectContaining({ id: 4 }))
+  })
+
+  it('permite desativar funcionário e mostra o novo status', async () => {
+    vi.mocked(employeeApi.updateEmployee).mockResolvedValue({ ...employee, ativo: false })
+    render(<EmployeesPage />)
+    await screen.findByText('Carlos Souza')
+    expect(screen.getByText('Ativo')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'inactive' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar funcionário' }))
+
+    await waitFor(() => expect(employeeApi.updateEmployee).toHaveBeenCalledWith(4, expect.objectContaining({ ativo: false })))
+    expect(screen.getByText('Inativo')).toBeTruthy()
+    expect(screen.getByText('Funcionário atualizado com sucesso.')).toBeTruthy()
   })
 
   it('edita preço e fornecedor do produto preservando os decimais', async () => {
