@@ -43,3 +43,12 @@ class FornecedorRead(ReadModel):
     numero: str
     complemento: str | None = None
     cnpj: str
+
+
+class FornecedorProdutoRead(ReadModel):
+    id: int
+    nome: str
+
+
+class FornecedorDetailRead(FornecedorRead):
+    produtos: list[FornecedorProdutoRead] = Field(default_factory=list)

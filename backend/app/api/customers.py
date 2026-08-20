@@ -1,11 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
-from app.models import Cliente, Venda
-from app.schemas.customers import ClienteCreate, ClienteRead, ClienteUpdate
+from app.models import Cliente, Produto, Venda, VendaItem
+from app.schemas.customers import (
+    ClienteCreate,
+    ClienteDetailRead,
+    ClienteProdutoCompradoRead,
+    ClienteRead,
+    ClienteUpdate,
+)
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
@@ -15,12 +21,40 @@ def list_customers(db: Session = Depends(get_db_session)) -> list[Cliente]:
     return list(db.scalars(select(Cliente).order_by(Cliente.id)).all())
 
 
-@router.get("/{customer_id}", response_model=ClienteRead)
-def get_customer(customer_id: int, db: Session = Depends(get_db_session)) -> Cliente:
+@router.get("/{customer_id}", response_model=ClienteDetailRead)
+def get_customer(
+    customer_id: int,
+    db: Session = Depends(get_db_session),
+) -> ClienteDetailRead:
     customer = db.get(Cliente, customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente não encontrado.")
-    return customer
+
+    purchased_products_query = (
+        select(
+            Produto.id.label("produto_id"),
+            Produto.nome,
+            func.sum(VendaItem.quantidade).label("quantidade"),
+        )
+        .join(VendaItem, VendaItem.produto_id == Produto.id)
+        .join(Venda, Venda.id == VendaItem.venda_id)
+        .where(Venda.cliente_id == customer_id)
+        .group_by(Produto.id, Produto.nome)
+        .order_by(Produto.id)
+    )
+    purchased_products = [
+        ClienteProdutoCompradoRead(
+            produto_id=row.produto_id,
+            nome=row.nome,
+            quantidade=row.quantidade,
+        )
+        for row in db.execute(purchased_products_query)
+    ]
+    customer_read = ClienteRead.model_validate(customer)
+    return ClienteDetailRead(
+        **customer_read.model_dump(),
+        produtos_comprados=purchased_products,
+    )
 
 
 @router.post("", response_model=ClienteRead, status_code=status.HTTP_201_CREATED)

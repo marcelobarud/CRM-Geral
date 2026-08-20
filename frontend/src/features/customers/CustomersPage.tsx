@@ -11,10 +11,11 @@ import { getApiErrorMessage } from '../../services/httpClient'
 import {
   createCustomer,
   deleteCustomer,
+  getCustomer,
   listCustomers,
   updateCustomer,
 } from './api'
-import type { Customer, CustomerPayload } from './types'
+import type { Customer, CustomerDetails, CustomerPayload } from './types'
 
 const emptyCustomer: CustomerPayload = {
   nome: '',
@@ -59,11 +60,24 @@ function CustomerForm({ initialValue, saving, onCancel, onSave }: CustomerFormPr
   )
 }
 
-function CustomerDetails({ customer }: { customer: Customer }) {
+function formatQuantity(quantity: string): string {
+  return quantity.replace('.', ',')
+}
+
+function CustomerDetails({ customer }: { customer: CustomerDetails }) {
   return (
-    <dl className="detail-grid">
-      <div><dt>Nome</dt><dd>{customer.nome}</dd></div><div><dt>Cidade / Estado</dt><dd>{customer.cidade} / {customer.estado}</dd></div><div><dt>Rua</dt><dd>{customer.rua}</dd></div><div><dt>Número</dt><dd>{customer.numero}</dd></div><div className="form-grid-wide"><dt>Complemento</dt><dd>{customer.complemento || 'Não informado'}</dd></div>
-    </dl>
+    <>
+      <dl className="detail-grid">
+        <div><dt>Nome</dt><dd>{customer.nome}</dd></div><div><dt>Cidade / Estado</dt><dd>{customer.cidade} / {customer.estado}</dd></div><div><dt>Rua</dt><dd>{customer.rua}</dd></div><div><dt>Número</dt><dd>{customer.numero}</dd></div><div className="form-grid-wide"><dt>Complemento</dt><dd>{customer.complemento || 'Não informado'}</dd></div>
+      </dl>
+      <section className="relational-detail-section" aria-labelledby="customer-purchased-products-title">
+        <div className="relational-detail-heading">
+          <h3 id="customer-purchased-products-title">Produtos comprados</h3>
+          <span>{customer.produtos_comprados.length} {customer.produtos_comprados.length === 1 ? 'produto' : 'produtos'}</span>
+        </div>
+        {customer.produtos_comprados.length === 0 ? <p className="relational-detail-empty">Nenhum produto comprado.</p> : <ul className="relational-detail-list">{customer.produtos_comprados.map((product) => <li className="relational-detail-item" key={product.produto_id}><strong>{product.nome}</strong><span>Quantidade: {formatQuantity(product.quantidade)}</span></li>)}</ul>}
+      </section>
+    </>
   )
 }
 
@@ -74,6 +88,9 @@ export function CustomersPage() {
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   const [modal, setModal] = useState<'create' | 'edit' | 'view' | null>(null)
   const [selected, setSelected] = useState<Customer | null>(null)
+  const [selectedDetails, setSelectedDetails] = useState<CustomerDetails | null>(null)
+  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsError, setDetailsError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -85,6 +102,21 @@ export function CustomersPage() {
 
   // oxlint-disable-next-line
   useEffect(() => { void loadCustomers() }, [loadCustomers])
+
+  const openCustomerDetails = async (customer: Customer) => {
+    setSelected(customer)
+    setSelectedDetails(null)
+    setDetailsError(null)
+    setDetailsLoading(true)
+    setModal('view')
+    try {
+      setSelectedDetails(await getCustomer(customer.id))
+    } catch (loadError) {
+      setDetailsError(getApiErrorMessage(loadError, 'Não foi possível carregar os detalhes do cliente.'))
+    } finally {
+      setDetailsLoading(false)
+    }
+  }
 
   const saveCustomer = async (payload: CustomerPayload) => {
     setSaving(true)
@@ -113,8 +145,8 @@ export function CustomersPage() {
     <div className="crud-page">
       <div className="crud-page-header"><PageHeader eyebrow="Cadastros" title="Clientes" description="Organize as pessoas que fazem parte do seu negócio." /><button className="button button-primary" type="button" onClick={() => { setSelected(null); setModal('create'); setFeedback(null) }}>+ Novo cliente</button></div>
       {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
-      {loading ? <LoadingState label="Carregando clientes..." /> : error ? <ErrorState description={error} onRetry={() => { setLoading(true); void loadCustomers() }} /> : customers.length === 0 ? <div className="data-card"><EmptyState title="Nenhum cliente cadastrado ainda" description="Crie o primeiro cliente para começar sua base de relacionamento." /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Cliente</th><th>Localização</th><th>Endereço</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{customers.map((customer) => <tr key={customer.id}><td className="data-primary">{customer.nome}<span className="data-secondary">ID {customer.id}</span></td><td>{customer.cidade} / {customer.estado}</td><td>{customer.rua}, {customer.numero}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => { setSelected(customer); setModal('view') }}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(customer); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(customer)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
-      {modal === 'view' && selected ? <Modal title="Detalhes do cliente" onClose={() => setModal(null)}><CustomerDetails customer={selected} /></Modal> : null}
+      {loading ? <LoadingState label="Carregando clientes..." /> : error ? <ErrorState description={error} onRetry={() => { setLoading(true); void loadCustomers() }} /> : customers.length === 0 ? <div className="data-card"><EmptyState title="Nenhum cliente cadastrado ainda" description="Crie o primeiro cliente para começar sua base de relacionamento." /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Cliente</th><th>Localização</th><th>Endereço</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{customers.map((customer) => <tr key={customer.id}><td className="data-primary">{customer.nome}<span className="data-secondary">ID {customer.id}</span></td><td>{customer.cidade} / {customer.estado}</td><td>{customer.rua}, {customer.numero}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => void openCustomerDetails(customer)}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(customer); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(customer)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
+      {modal === 'view' && selected ? <Modal title="Detalhes do cliente" size="large" onClose={() => { setModal(null); setSelectedDetails(null) }}>{detailsLoading ? <LoadingState label="Carregando detalhes do cliente..." /> : detailsError ? <ErrorState description={detailsError} onRetry={() => void openCustomerDetails(selected)} /> : selectedDetails ? <CustomerDetails customer={selectedDetails} /> : null}</Modal> : null}
       {(modal === 'create' || modal === 'edit') ? <Modal title={modal === 'edit' ? 'Editar cliente' : 'Novo cliente'} description="Preencha os campos obrigatórios para continuar." onClose={() => setModal(null)}><CustomerForm initialValue={formValue} saving={saving} onCancel={() => setModal(null)} onSave={(payload) => void saveCustomer(payload)} /></Modal> : null}
       {deleteTarget ? <ConfirmDialog title="Excluir cliente?" description={`O cadastro de ${deleteTarget.nome} será removido. Essa ação não pode ser desfeita.`} busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={() => void removeCustomer()} /> : null}
     </div>

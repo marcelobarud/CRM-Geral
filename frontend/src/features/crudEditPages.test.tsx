@@ -15,12 +15,14 @@ import { SuppliersPage } from './suppliers/SuppliersPage'
 vi.mock('./customers/api', () => ({
   createCustomer: vi.fn(),
   deleteCustomer: vi.fn(),
+  getCustomer: vi.fn(),
   listCustomers: vi.fn(),
   updateCustomer: vi.fn(),
 }))
 vi.mock('./suppliers/api', () => ({
   createSupplier: vi.fn(),
   deleteSupplier: vi.fn(),
+  getSupplier: vi.fn(),
   listSuppliers: vi.fn(),
   updateSupplier: vi.fn(),
 }))

@@ -9,4 +9,13 @@ export type Supplier = {
   cnpj: string
 }
 
+export type SupplierProduct = {
+  id: number
+  nome: string
+}
+
+export type SupplierDetails = Supplier & {
+  produtos: SupplierProduct[]
+}
+
 export type SupplierPayload = Omit<Supplier, 'id'>

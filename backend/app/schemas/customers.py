@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import Field, model_validator
 
 from app.schemas.base import APIModel, ReadModel
@@ -40,3 +42,15 @@ class ClienteRead(ReadModel):
     rua: str
     numero: str
     complemento: str | None = None
+
+
+class ClienteProdutoCompradoRead(ReadModel):
+    produto_id: int
+    nome: str
+    quantidade: Decimal
+
+
+class ClienteDetailRead(ClienteRead):
+    produtos_comprados: list[ClienteProdutoCompradoRead] = Field(
+        default_factory=list,
+    )

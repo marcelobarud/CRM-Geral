@@ -1,11 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db_session
 from app.models import Fornecedor, Produto, VendaItem
-from app.schemas.suppliers import FornecedorCreate, FornecedorRead, FornecedorUpdate
+from app.schemas.suppliers import (
+    FornecedorCreate,
+    FornecedorDetailRead,
+    FornecedorProdutoRead,
+    FornecedorRead,
+    FornecedorUpdate,
+)
 
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
 
@@ -27,12 +33,27 @@ def list_suppliers(db: Session = Depends(get_db_session)) -> list[Fornecedor]:
     return list(db.scalars(select(Fornecedor).order_by(Fornecedor.id)).all())
 
 
-@router.get("/{supplier_id}", response_model=FornecedorRead)
-def get_supplier(supplier_id: int, db: Session = Depends(get_db_session)) -> Fornecedor:
-    supplier = db.get(Fornecedor, supplier_id)
+@router.get("/{supplier_id}", response_model=FornecedorDetailRead)
+def get_supplier(
+    supplier_id: int,
+    db: Session = Depends(get_db_session),
+) -> FornecedorDetailRead:
+    supplier = db.scalar(
+        select(Fornecedor)
+        .options(selectinload(Fornecedor.produtos))
+        .where(Fornecedor.id == supplier_id)
+    )
     if supplier is None:
         raise HTTPException(status_code=404, detail="Fornecedor não encontrado.")
-    return supplier
+
+    supplier_read = FornecedorRead.model_validate(supplier)
+    return FornecedorDetailRead(
+        **supplier_read.model_dump(),
+        produtos=[
+            FornecedorProdutoRead.model_validate(product)
+            for product in supplier.produtos
+        ],
+    )
 
 
 @router.post("", response_model=FornecedorRead, status_code=status.HTTP_201_CREATED)

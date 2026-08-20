@@ -1,14 +1,19 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as customersApi from './api'
 import { CustomersPage } from './CustomersPage'
 
+afterEach(() => {
+  cleanup()
+})
+
 vi.mock('./api', () => ({
   createCustomer: vi.fn(),
   deleteCustomer: vi.fn(),
+  getCustomer: vi.fn(),
   listCustomers: vi.fn(),
   updateCustomer: vi.fn(),
 }))
@@ -23,11 +28,20 @@ const customer = {
   complemento: null,
 }
 
+const customerDetails = {
+  ...customer,
+  produtos_comprados: [
+    { produto_id: 7, nome: 'Produto com quantidade fracionária', quantidade: '3.625' },
+    { produto_id: 8, nome: 'Produto repetido em vendas', quantidade: '1.000' },
+  ],
+}
+
 describe('CustomersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(customersApi.listCustomers).mockResolvedValue([])
     vi.mocked(customersApi.createCustomer).mockResolvedValue(customer)
+    vi.mocked(customersApi.getCustomer).mockResolvedValue(customerDetails)
   })
 
   it('opens an accessible form and sends empty optional complement as null', async () => {
@@ -55,5 +69,29 @@ describe('CustomersPage', () => {
       })
     })
     expect(screen.getByText('Cliente criado com sucesso.')).toBeTruthy()
+  })
+
+  it('shows purchased products and consolidated fractional quantity in the detail', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer])
+    render(<CustomersPage />)
+
+    await screen.findByText('Ana Silva')
+    fireEvent.click(screen.getByRole('button', { name: 'Ver' }))
+
+    expect(await screen.findByText('Produtos comprados')).toBeTruthy()
+    expect(screen.getByText('Produto com quantidade fracionária')).toBeTruthy()
+    expect(screen.getByText('Quantidade: 3,625')).toBeTruthy()
+    expect(customersApi.getCustomer).toHaveBeenCalledWith(customer.id)
+  })
+
+  it('shows an explicit empty state when the customer has no purchases', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer])
+    vi.mocked(customersApi.getCustomer).mockResolvedValue({ ...customer, produtos_comprados: [] })
+    render(<CustomersPage />)
+
+    await screen.findByText('Ana Silva')
+    fireEvent.click(screen.getByRole('button', { name: 'Ver' }))
+
+    expect(await screen.findByText('Nenhum produto comprado.')).toBeTruthy()
   })
 })

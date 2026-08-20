@@ -740,6 +740,9 @@ Nunca reconstruir venda histórica usando `produtos.preco_venda`.
 
 # 8. Fase 15 — Detalhes relacionais de Clientes e Fornecedores
 
+**Status atual:** implementação realizada; validação PostgreSQL real e revisão
+manual responsiva pendentes.
+
 ## Objetivo
 
 Enriquecer os detalhes dos cadastros sem duplicar dados.
@@ -747,6 +750,15 @@ Enriquecer os detalhes dos cadastros sem duplicar dados.
 ---
 
 ## 8.1. Fornecedor → Produtos fornecidos
+
+### Estado da implementação
+
+- `GET /api/suppliers/{id}` retorna um schema de detalhe com Produtos derivados
+  de `Produto.fornecedor_id`.
+- O carregamento usa `selectinload(Fornecedor.produtos)`, sem persistir uma
+  lista duplicada e sem N+1.
+- A tela de Fornecedores carrega o detalhe sob demanda, exibe os nomes dos
+  Produtos e possui estado vazio, loading e erro.
 
 No detalhamento do Fornecedor, adicionar seção:
 
@@ -771,6 +783,15 @@ Podem ser exibidas outras informações já presentes na tela de Produtos quando
 ---
 
 ## 8.2. Cliente → Produtos comprados
+
+### Estado da implementação
+
+- `GET /api/customers/{id}` retorna um schema de detalhe com Produtos derivados
+  de `Cliente → Vendas → VendaItens → Produto`.
+- A consolidação ocorre no banco por `produto_id`, com `SUM(VendaItem.quantidade)`
+  preservando `Decimal`; nomes iguais com IDs diferentes permanecem separados.
+- A tela de Clientes carrega o detalhe sob demanda, exibe quantidade fracionária
+  e possui estado vazio, loading e erro.
 
 No detalhamento do Cliente, adicionar seção:
 
@@ -842,6 +863,18 @@ Para uma visão consolidada de produtos comprados, não inventar um “preço at
 ## Checkpoint sugerido
 
 `feat: adiciona detalhes relacionais de clientes e fornecedores`
+
+## Validação da implementação atual
+
+- Backend: Ruff passou; `27 passed, 38 skipped, 1 warning` localmente. Os skips
+  são os testes PostgreSQL porque `TEST_DATABASE_URL` não está definida neste
+  processo.
+- Frontend: lint, typecheck, `38 passed` e build passaram.
+- PostgreSQL real: ainda não executado neste ambiente. Deve ser executado duas
+  vezes com `TEST_DATABASE_URL` externo apontando para `crm_geral_test`.
+- Validação manual responsiva: pendente, pois o navegador local não ficou
+  disponível para inspeção nesta execução.
+- Fase 15 não deve ser marcada como concluída antes dessas duas validações.
 
 ---
 
@@ -1381,7 +1414,8 @@ IMPLEMENTATION_PLAN_02.md
 → Fase 12 concluída
 → Fase 13 concluída
 → Fase 14 concluída; PostgreSQL validado com `63 passed`
-→ Fases 15 a 18 pendentes e não iniciadas
+→ Fase 15 implementada; validação PostgreSQL/manual pendente
+→ Fases 16 a 18 pendentes e não iniciadas
 ```
 
 Fases previstas:

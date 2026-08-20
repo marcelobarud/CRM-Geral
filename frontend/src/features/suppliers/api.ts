@@ -1,12 +1,12 @@
 import { request, requestJson } from '../../services/httpClient'
-import type { Supplier, SupplierPayload } from './types'
+import type { Supplier, SupplierDetails, SupplierPayload } from './types'
 
 export function listSuppliers(): Promise<Supplier[]> {
   return request<Supplier[]>('/api/suppliers')
 }
 
-export function getSupplier(id: number): Promise<Supplier> {
-  return request<Supplier>(`/api/suppliers/${id}`)
+export function getSupplier(id: number): Promise<SupplierDetails> {
+  return request<SupplierDetails>(`/api/suppliers/${id}`)
 }
 
 export function createSupplier(payload: SupplierPayload): Promise<Supplier> {

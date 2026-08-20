@@ -48,3 +48,20 @@ def test_openapi_lists_sales_routes_and_sale_request_contract() -> None:
         "VendaItemCreate"
     ]
     assert "fornecedor_id" not in sale_item_create_schema["properties"]
+
+    customer_detail_schema = response.json()["components"]["schemas"][
+        "ClienteDetailRead"
+    ]
+    assert customer_detail_schema["properties"]["produtos_comprados"]["type"] == "array"
+    customer_product_ref = customer_detail_schema["properties"]["produtos_comprados"][
+        "items"
+    ]["$ref"]
+    assert customer_product_ref.endswith("/ClienteProdutoCompradoRead")
+    supplier_detail_schema = response.json()["components"]["schemas"][
+        "FornecedorDetailRead"
+    ]
+    assert supplier_detail_schema["properties"]["produtos"]["type"] == "array"
+    supplier_product_ref = supplier_detail_schema["properties"]["produtos"][
+        "items"
+    ]["$ref"]
+    assert supplier_product_ref.endswith("/FornecedorProdutoRead")

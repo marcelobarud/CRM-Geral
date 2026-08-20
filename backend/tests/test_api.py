@@ -141,6 +141,157 @@ def test_supplier_crud_duplicate_cnpj_and_referenced_delete(
     assert delete_response.status_code == 409
 
 
+def test_supplier_detail_lists_only_products_from_that_supplier(
+    client: TestClient,
+) -> None:
+    first_supplier = client.post("/api/suppliers", json=supplier_payload()).json()
+    second_supplier = client.post(
+        "/api/suppliers",
+        json={
+            **supplier_payload(),
+            "nome": "Outro fornecedor",
+            "cnpj": "98.765.432/0001-10",
+        },
+    ).json()
+
+    first_product = client.post(
+        "/api/products",
+        json={
+            **product_payload(first_supplier["id"]),
+            "nome": "Produto do primeiro fornecedor",
+        },
+    ).json()
+    second_product = client.post(
+        "/api/products",
+        json={
+            **product_payload(first_supplier["id"]),
+            "nome": "Segundo produto do primeiro fornecedor",
+        },
+    ).json()
+    other_product = client.post(
+        "/api/products",
+        json={
+            **product_payload(second_supplier["id"]),
+            "nome": "Produto de outro fornecedor",
+        },
+    ).json()
+
+    detail = client.get(f"/api/suppliers/{first_supplier['id']}")
+    assert detail.status_code == 200
+    assert detail.json()["produtos"] == [
+        {"id": first_product["id"], "nome": first_product["nome"]},
+        {"id": second_product["id"], "nome": second_product["nome"]},
+    ]
+    assert other_product["id"] not in {
+        product["id"] for product in detail.json()["produtos"]
+    }
+
+    empty_supplier = client.post(
+        "/api/suppliers",
+        json={
+            **supplier_payload(),
+            "nome": "Fornecedor sem produtos",
+            "cnpj": "11.222.333/0001-44",
+        },
+    ).json()
+    empty_detail = client.get(f"/api/suppliers/{empty_supplier['id']}")
+    assert empty_detail.status_code == 200
+    assert empty_detail.json()["produtos"] == []
+
+
+def test_customer_detail_consolidates_purchased_products_by_id(
+    client: TestClient,
+    session,
+) -> None:
+    customer, employee, first_product = seed_sale_dependencies(session)
+    other_customer = Cliente(
+        **{**customer_payload(), "nome": "Outro cliente"},
+    )
+    second_product = Produto(
+        nome="Produto diferente",
+        categoria="Geral",
+        preco_custo=Decimal("4.00"),
+        preco_venda=Decimal("8.25"),
+        fornecedor_id=first_product.fornecedor_id,
+    )
+    same_name_product = Produto(
+        nome=first_product.nome,
+        categoria="Outra categoria",
+        preco_custo=Decimal("5.00"),
+        preco_venda=Decimal("9.25"),
+        fornecedor_id=first_product.fornecedor_id,
+    )
+    session.add_all([other_customer, second_product, same_name_product])
+    session.flush()
+
+    first_sale = client.post(
+        "/api/sales",
+        json={
+            "cliente_id": customer.id,
+            "funcionario_id": employee.id,
+            "data_venda": "2026-08-19T18:00:00Z",
+            "itens": [
+                {"produto_id": first_product.id, "quantidade": "1.250"},
+            ],
+        },
+    )
+    second_sale = client.post(
+        "/api/sales",
+        json={
+            "cliente_id": customer.id,
+            "funcionario_id": employee.id,
+            "data_venda": "2026-08-19T19:00:00Z",
+            "itens": [
+                {"produto_id": first_product.id, "quantidade": "2.375"},
+                {"produto_id": second_product.id, "quantidade": "1.000"},
+                {"produto_id": same_name_product.id, "quantidade": "0.750"},
+            ],
+        },
+    )
+    other_customer_sale = client.post(
+        "/api/sales",
+        json={
+            "cliente_id": other_customer.id,
+            "funcionario_id": employee.id,
+            "data_venda": "2026-08-19T20:00:00Z",
+            "itens": [
+                {"produto_id": first_product.id, "quantidade": "9.000"},
+            ],
+        },
+    )
+    assert first_sale.status_code == 201
+    assert second_sale.status_code == 201
+    assert other_customer_sale.status_code == 201
+
+    detail = client.get(f"/api/customers/{customer.id}")
+    assert detail.status_code == 200
+    products = detail.json()["produtos_comprados"]
+    assert products == [
+        {
+            "produto_id": first_product.id,
+            "nome": first_product.nome,
+            "quantidade": "3.625",
+        },
+        {
+            "produto_id": second_product.id,
+            "nome": second_product.nome,
+            "quantidade": "1.000",
+        },
+        {
+            "produto_id": same_name_product.id,
+            "nome": same_name_product.nome,
+            "quantidade": "0.750",
+        },
+    ]
+
+    empty_customer = Cliente(**{**customer_payload(), "nome": "Cliente sem vendas"})
+    session.add(empty_customer)
+    session.flush()
+    empty_detail = client.get(f"/api/customers/{empty_customer.id}")
+    assert empty_detail.status_code == 200
+    assert empty_detail.json()["produtos_comprados"] == []
+
+
 def test_employee_crud_duplicate_cpf_optional_fields_and_referenced_delete(
     client: TestClient,
     session,

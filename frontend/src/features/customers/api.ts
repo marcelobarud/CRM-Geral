@@ -1,12 +1,12 @@
 import { request, requestJson } from '../../services/httpClient'
-import type { Customer, CustomerPayload } from './types'
+import type { Customer, CustomerDetails, CustomerPayload } from './types'
 
 export function listCustomers(): Promise<Customer[]> {
   return request<Customer[]>('/api/customers')
 }
 
-export function getCustomer(id: number): Promise<Customer> {
-  return request<Customer>(`/api/customers/${id}`)
+export function getCustomer(id: number): Promise<CustomerDetails> {
+  return request<CustomerDetails>(`/api/customers/${id}`)
 }
 
 export function createCustomer(payload: CustomerPayload): Promise<Customer> {

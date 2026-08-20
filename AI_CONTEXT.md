@@ -27,8 +27,10 @@ testes. A Fase 14 foi implementada para melhorar a listagem e o detalhamento
 de Vendas: a listagem prioriza Produto, Valor Total, Cliente e Funcionário;
 vendas com múltiplos itens exibem a contagem de produtos; e o detalhe
 apresenta preço, subtotal e fornecedor histórico. A validação PostgreSQL da
-Fase 14 foi confirmada pelo usuário com `63 passed`. A Fase 15 ainda não foi
-iniciada.
+Fase 14 foi confirmada pelo usuário com `63 passed`. A Fase 15 foi implementada
+parcialmente no código, com validação local concluída; a validação PostgreSQL
+real e a revisão manual responsiva ainda dependem do ambiente externo. A Fase
+16 não foi iniciada.
 
 Princípio central: privilegiar simplicidade sobre abrangência. Não tratar
 CRM genérico como autorização para construir uma plataforma completa.
@@ -570,4 +572,17 @@ Data: 2026-08-20
   `390 × 844`, sem overflow horizontal; o detalhe foi verificado com 1 e 3
   itens e a listagem com 1, 2 e 3 produtos.
 - A validação PostgreSQL da Fase 14 foi confirmada pelo usuário com `63 passed`.
-- A Fase 15 não foi iniciada.
+- A Fase 15 adicionou detalhes relacionais sem persistência duplicada: o detalhe
+  de Fornecedor deriva Produtos por `Produto.fornecedor_id`, e o detalhe de
+  Cliente deriva Produtos comprados por `Cliente → Vendas → VendaItens → Produto`.
+- Produtos comprados são consolidados por `produto_id` em query agregada, com
+  soma Decimal de `VendaItem.quantidade`; Produtos com o mesmo nome e IDs
+  diferentes permanecem registros distintos.
+- O detalhe de Fornecedor usa `selectinload(Fornecedor.produtos)` para evitar
+  N+1; o detalhe de Cliente usa uma query `GROUP BY`/`SUM`, sem cascata N+1.
+- A implementação local da Fase 15 passou Ruff, backend `27 passed, 38 skipped,
+  1 warning`, frontend lint, typecheck, `38 passed` e build. Os skips ocorreram
+  porque `TEST_DATABASE_URL` não estava definida neste processo; a validação
+  manual responsiva também permanece pendente.
+- A Fase 15 ainda não está formalmente concluída até a validação PostgreSQL real
+  e a revisão manual. A Fase 16 não foi iniciada.

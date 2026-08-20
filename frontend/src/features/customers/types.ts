@@ -8,4 +8,14 @@ export type Customer = {
   complemento: string | null
 }
 
+export type CustomerPurchasedProduct = {
+  produto_id: number
+  nome: string
+  quantidade: string
+}
+
+export type CustomerDetails = Customer & {
+  produtos_comprados: CustomerPurchasedProduct[]
+}
+
 export type CustomerPayload = Omit<Customer, 'id'>
