@@ -104,15 +104,16 @@ def delete_sale(db: Session, sale_id: int) -> None:
     if sale is None:
         raise SaleNotFound("Venda não encontrada.")
 
+    savepoint = db.begin_nested()
     try:
         db.execute(delete(VendaItem).where(VendaItem.venda_id == sale_id))
         db.delete(sale)
         db.commit()
     except IntegrityError:
-        db.rollback()
+        savepoint.rollback()
         raise SalePersistenceError from None
     except Exception:
-        db.rollback()
+        savepoint.rollback()
         raise
 
 
