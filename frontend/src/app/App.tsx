@@ -14,10 +14,16 @@ function currentPathname(): string {
   return window.location.pathname || '/'
 }
 
-function PageForRoute({ route }: { route: RouteDefinition }) {
+function PageForRoute({
+  route,
+  onNavigate,
+}: {
+  route: RouteDefinition
+  onNavigate: (path: string) => void
+}) {
   switch (route.path) {
     case '/':
-      return <DashboardPage />
+      return <DashboardPage onNavigate={onNavigate} />
     case '/customers':
       return <CustomersPage />
     case '/products':
@@ -59,7 +65,7 @@ function App() {
 
   return (
     <AppLayout route={route} onNavigate={navigate}>
-      <PageForRoute route={route} />
+      <PageForRoute route={route} onNavigate={navigate} />
     </AppLayout>
   )
 }

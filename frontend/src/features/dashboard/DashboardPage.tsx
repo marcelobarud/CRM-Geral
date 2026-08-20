@@ -1,14 +1,200 @@
-import { FeaturePlaceholder } from '../../components/FeaturePlaceholder'
+import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 
-export function DashboardPage() {
+import { ErrorState } from '../../components/ErrorState'
+import { LoadingState } from '../../components/LoadingState'
+import { PageHeader } from '../../components/PageHeader'
+import { listCustomers } from '../customers/api'
+import { listEmployees } from '../employees/api'
+import { listProducts } from '../products/api'
+import { listSales } from '../sales/api'
+import { listSuppliers } from '../suppliers/api'
+
+type DashboardPageProps = {
+  onNavigate: (path: string) => void
+}
+
+type DashboardCounts = {
+  customers: number | null
+  products: number | null
+  suppliers: number | null
+  employees: number | null
+  sales: number | null
+}
+
+type SummaryCardProps = {
+  label: string
+  count: number | null
+  description: string
+  icon: string
+  href: string
+  onNavigate: (path: string) => void
+}
+
+type QuickActionProps = {
+  label: string
+  description: string
+  icon: string
+  href: string
+  onNavigate: (path: string) => void
+}
+
+const initialCounts: DashboardCounts = {
+  customers: null,
+  products: null,
+  suppliers: null,
+  employees: null,
+  sales: null,
+}
+
+function countResult<T>(result: PromiseSettledResult<T[]>): number | null {
+  return result.status === 'fulfilled' ? result.value.length : null
+}
+
+function navigateFromLink(
+  event: MouseEvent<HTMLAnchorElement>,
+  href: string,
+  onNavigate: (path: string) => void,
+) {
+  event.preventDefault()
+  onNavigate(href)
+}
+
+function SummaryCard({
+  label,
+  count,
+  description,
+  icon,
+  href,
+  onNavigate,
+}: SummaryCardProps) {
   return (
-    <FeaturePlaceholder
-      eyebrow="Visão geral"
-      title="Olá, que bom ter você aqui."
-      description="Uma visão tranquila para acessar as áreas importantes do seu CRM."
-      emptyTitle="Seu painel está pronto para começar"
-      emptyDescription="Os atalhos e informações operacionais serão adicionados nas próximas etapas."
-      icon="⌂"
-    />
+    <a
+      className="dashboard-summary-card"
+      href={href}
+      onClick={(event) => navigateFromLink(event, href, onNavigate)}
+    >
+      <span className="dashboard-card-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="dashboard-card-label">{label}</span>
+      <strong className="dashboard-card-value">
+        {count === null ? '—' : count}
+      </strong>
+      <span className="dashboard-card-description">{description}</span>
+      <span className="dashboard-card-link">Acessar área →</span>
+    </a>
+  )
+}
+
+function QuickAction({
+  label,
+  description,
+  icon,
+  href,
+  onNavigate,
+}: QuickActionProps) {
+  return (
+    <a
+      className="dashboard-quick-action"
+      href={href}
+      onClick={(event) => navigateFromLink(event, href, onNavigate)}
+    >
+      <span className="dashboard-action-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span>
+        <strong>{label}</strong>
+        <span>{description}</span>
+      </span>
+      <span className="dashboard-action-arrow" aria-hidden="true">
+        →
+      </span>
+    </a>
+  )
+}
+
+export function DashboardPage({ onNavigate }: DashboardPageProps) {
+  const [counts, setCounts] = useState<DashboardCounts>(initialCounts)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const loadDashboard = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+
+    const results = await Promise.allSettled([
+      listCustomers(),
+      listProducts(),
+      listSuppliers(),
+      listEmployees(),
+      listSales(),
+    ])
+
+    const [customers, products, suppliers, employees, sales] = results
+    setCounts({
+      customers: countResult(customers),
+      products: countResult(products),
+      suppliers: countResult(suppliers),
+      employees: countResult(employees),
+      sales: countResult(sales),
+    })
+
+    if (results.some((result) => result.status === 'rejected')) {
+      setLoadError('Algumas informações não puderam ser carregadas. Tente novamente.')
+    }
+
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect
+    void loadDashboard()
+  }, [loadDashboard])
+
+  return (
+    <div className="dashboard-page">
+      <PageHeader
+        eyebrow="Visão geral"
+        title="Olá, que bom ter você aqui."
+        description="Acompanhe o estado atual do CRM e acesse rapidamente o que precisa ser feito."
+      />
+
+      {loading ? <LoadingState label="Carregando resumo operacional..." /> : null}
+      {loadError ? <ErrorState description={loadError} onRetry={() => void loadDashboard()} /> : null}
+
+      {!loading ? (
+        <>
+          <section className="dashboard-section" aria-labelledby="dashboard-summary-title">
+            <div className="dashboard-section-heading">
+              <div>
+                <p className="eyebrow">Agora</p>
+                <h2 id="dashboard-summary-title">Resumo operacional</h2>
+              </div>
+              <span className="dashboard-section-note">Dados das listagens atuais</span>
+            </div>
+            <div className="dashboard-summary-grid">
+              <SummaryCard label="Clientes" count={counts.customers} description={counts.customers === 0 ? 'Nenhum cliente cadastrado' : 'Pessoas cadastradas'} icon="◎" href="/customers" onNavigate={onNavigate} />
+              <SummaryCard label="Produtos" count={counts.products} description={counts.products === 0 ? 'Nenhum produto cadastrado' : 'Itens no catálogo'} icon="▦" href="/products" onNavigate={onNavigate} />
+              <SummaryCard label="Fornecedores" count={counts.suppliers} description={counts.suppliers === 0 ? 'Nenhum fornecedor cadastrado' : 'Parceiros cadastrados'} icon="◈" href="/suppliers" onNavigate={onNavigate} />
+              <SummaryCard label="Funcionários" count={counts.employees} description={counts.employees === 0 ? 'Nenhum funcionário cadastrado' : 'Equipe cadastrada'} icon="♙" href="/employees" onNavigate={onNavigate} />
+              <SummaryCard label="Vendas" count={counts.sales} description={counts.sales === 0 ? 'Nenhuma venda registrada' : 'Vendas no histórico'} icon="↗" href="/sales" onNavigate={onNavigate} />
+            </div>
+          </section>
+
+          <section className="dashboard-section dashboard-actions-section" aria-labelledby="dashboard-actions-title">
+            <div className="dashboard-section-heading">
+              <div>
+                <p className="eyebrow">Atalhos</p>
+                <h2 id="dashboard-actions-title">Próximos passos</h2>
+              </div>
+            </div>
+            <div className="dashboard-actions-grid">
+              <QuickAction label="Nova venda" description="Registre uma venda com um ou mais produtos." icon="+" href="/sales/new" onNavigate={onNavigate} />
+              <QuickAction label="Abrir vendas" description="Consulte o histórico e os preços aplicados." icon="↗" href="/sales" onNavigate={onNavigate} />
+            </div>
+          </section>
+        </>
+      ) : null}
+    </div>
   )
 }
