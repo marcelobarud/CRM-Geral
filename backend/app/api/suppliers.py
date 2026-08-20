@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
-from app.models import Fornecedor
+from app.models import Fornecedor, Produto
 from app.schemas.suppliers import FornecedorCreate, FornecedorRead, FornecedorUpdate
 
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
@@ -84,6 +84,14 @@ def delete_supplier(
     supplier = db.get(Fornecedor, supplier_id)
     if supplier is None:
         raise HTTPException(status_code=404, detail="Fornecedor não encontrado.")
+    has_products = db.scalar(
+        select(Produto.id).where(Produto.fornecedor_id == supplier_id)
+    )
+    if has_products is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Fornecedor possui produtos relacionados e não pode ser excluído.",
+        )
     db.delete(supplier)
     try:
         db.commit()

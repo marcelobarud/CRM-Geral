@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
-from app.models import Fornecedor, Produto
+from app.models import Fornecedor, Produto, VendaItem
 from app.schemas.products import ProdutoCreate, ProdutoRead, ProdutoUpdate
 
 router = APIRouter(prefix="/api/products", tags=["products"])
@@ -80,6 +80,15 @@ def delete_product(product_id: int, db: Session = Depends(get_db_session)) -> Re
     product = db.get(Produto, product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
+    if db.scalar(
+        select(VendaItem.id).where(VendaItem.produto_id == product_id)
+    ) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Produto possui itens de venda relacionados e não pode ser excluído."
+            ),
+        )
     db.delete(product)
     try:
         db.commit()

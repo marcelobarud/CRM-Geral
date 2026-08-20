@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
-from app.models import Funcionario
+from app.models import Funcionario, Venda
 from app.schemas.employees import (
     FuncionarioCreate,
     FuncionarioRead,
@@ -91,6 +91,13 @@ def delete_employee(
     employee = db.get(Funcionario, employee_id)
     if employee is None:
         raise HTTPException(status_code=404, detail="Funcionário não encontrado.")
+    if db.scalar(
+        select(Venda.id).where(Venda.funcionario_id == employee_id)
+    ) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Funcionário possui vendas relacionadas e não pode ser excluído.",
+        )
     db.delete(employee)
     try:
         db.commit()

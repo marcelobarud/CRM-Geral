@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
-from app.models import Cliente
+from app.models import Cliente, Venda
 from app.schemas.customers import ClienteCreate, ClienteRead, ClienteUpdate
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
@@ -60,6 +60,13 @@ def delete_customer(
     customer = db.get(Cliente, customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente não encontrado.")
+    if db.scalar(
+        select(Venda.id).where(Venda.cliente_id == customer_id)
+    ) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Cliente possui vendas relacionadas e não pode ser excluído.",
+        )
     db.delete(customer)
     try:
         db.commit()
