@@ -94,4 +94,25 @@ describe('CustomersPage', () => {
 
     expect(await screen.findByText('Nenhum produto comprado.')).toBeTruthy()
   })
+
+  it('applies and clears the visible customer filters', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer])
+    render(<CustomersPage />)
+
+    await screen.findByText('Ana Silva')
+    expect(screen.queryByRole('dialog', { name: 'Filtros detalhados' })).toBeNull()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar clientes' }), { target: { value: '  Ana  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }))
+    expect(screen.getByRole('option', { name: 'São Paulo' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'SP' })).toBeTruthy()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Cidade' }), { target: { value: 'São Paulo' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Estado' }), { target: { value: 'SP' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
+
+    await waitFor(() => expect(customersApi.listCustomers).toHaveBeenCalledWith({ search: 'Ana', city: 'São Paulo', state: 'SP' }))
+    expect(screen.queryByRole('dialog', { name: 'Filtros detalhados' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Filtros \(2\)/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+    await waitFor(() => expect(customersApi.listCustomers).toHaveBeenCalledWith({}))
+  })
 })

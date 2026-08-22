@@ -43,9 +43,10 @@ describe('EmployeesPage filter infrastructure pilot', () => {
     const search = screen.getByRole('searchbox', { name: 'Pesquisar funcionários' })
     fireEvent.change(search, { target: { value: '  Carlos  ' } })
     expect(screen.getByRole('button', { name: 'Limpar pesquisa' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }))
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
 
-    await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(false, 'Carlos'))
+    await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenCalledWith(false, 'Carlos'))
   })
 
   it('combines search and the existing active filter with AND semantics', async () => {
@@ -53,10 +54,13 @@ describe('EmployeesPage filter infrastructure pilot', () => {
     await screen.findByText('Carlos Souza')
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar funcionários' }), { target: { value: 'Carlos' } })
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Somente ativos' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }))
+    expect(screen.getByRole('option', { name: 'Ativos' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Inativos' })).toBeTruthy()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), { target: { value: 'active' } })
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
 
-    await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(true, 'Carlos'))
+    await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenCalledWith(true, 'Carlos'))
   })
 
   it('clears search and active filters back to the unfiltered listing', async () => {
@@ -64,14 +68,17 @@ describe('EmployeesPage filter infrastructure pilot', () => {
     await screen.findByText('Carlos Souza')
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar funcionários' }), { target: { value: 'Carlos' } })
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Somente ativos' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), { target: { value: 'active' } })
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
-    await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(true, 'Carlos'))
+    await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenCalledWith(true, 'Carlos'))
 
+    fireEvent.click(screen.getByRole('button', { name: /Filtros \(1\)/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }))
-    await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(false, ''))
+    await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenCalledWith(false, ''))
     expect((screen.getByRole('searchbox', { name: 'Pesquisar funcionários' }) as HTMLInputElement).value).toBe('')
-    expect((screen.getByRole('checkbox', { name: 'Somente ativos' }) as HTMLInputElement).checked).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }))
+    expect((screen.getByRole('combobox', { name: 'Status' }) as HTMLSelectElement).value).toBe('all')
   })
 
   it('distinguishes zero filtered results from an empty base', async () => {
@@ -80,6 +87,7 @@ describe('EmployeesPage filter infrastructure pilot', () => {
     await screen.findByText('Carlos Souza')
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar funcionários' }), { target: { value: 'Inexistente' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }))
     fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
 
     expect(await screen.findByText('Nenhum resultado encontrado para os filtros aplicados.')).toBeTruthy()

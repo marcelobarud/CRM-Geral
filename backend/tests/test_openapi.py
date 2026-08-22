@@ -72,4 +72,33 @@ def test_openapi_lists_sales_routes_and_sale_request_contract() -> None:
     assert {parameter["name"] for parameter in employee_parameters} >= {
         "active",
         "search",
+        "city",
+        "state",
     }
+
+    expected_list_filters = {
+        "/api/customers": {"search", "city", "state"},
+        "/api/products": {
+            "search",
+            "category",
+            "supplier_id",
+            "cost_min",
+            "cost_max",
+            "sale_price_min",
+            "sale_price_max",
+        },
+        "/api/suppliers": {"search", "city", "state"},
+        "/api/sales": {
+            "search",
+            "product_id",
+            "customer_id",
+            "employee_id",
+            "date_from",
+            "date_to",
+            "total_min",
+            "total_max",
+        },
+    }
+    for path, expected_parameters in expected_list_filters.items():
+        parameters = response.json()["paths"][path]["get"]["parameters"]
+        assert {parameter["name"] for parameter in parameters} >= expected_parameters

@@ -30,12 +30,16 @@ def ensure_unique_cpf(
 def list_employees(
     active: bool | None = Query(default=None),
     search: str | None = Query(default=None),
+    city: str | None = Query(default=None),
+    state: str | None = Query(default=None),
     db: Session = Depends(get_db_session),
 ) -> list[Funcionario]:
     query = select(Funcionario)
     if active is not None:
         query = query.where(Funcionario.ativo == active)
     normalized_search = search.strip() if search else ""
+    normalized_city = city.strip() if city else ""
+    normalized_state = state.strip() if state else ""
     if normalized_search:
         search_pattern = f"%{normalized_search}%"
         query = query.where(
@@ -46,6 +50,10 @@ def list_employees(
                 Funcionario.estado.ilike(search_pattern),
             )
         )
+    if normalized_city:
+        query = query.where(Funcionario.cidade.ilike(normalized_city))
+    if normalized_state:
+        query = query.where(Funcionario.estado.ilike(normalized_state))
     return list(db.scalars(query.order_by(Funcionario.id)).all())
 
 

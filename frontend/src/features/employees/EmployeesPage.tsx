@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
 import { FeedbackBanner } from '../../components/FeedbackBanner'
+import { FilterMenu } from '../../components/FilterMenu'
+import { uniqueFilterOptions } from '../../components/filterOptions'
 import { LoadingState } from '../../components/LoadingState'
 import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
@@ -44,54 +46,78 @@ function EmployeeDetails({ employee }: { employee: Employee }) {
 
 export function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
+  const [filterEmployees, setFilterEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchDraft, setSearchDraft] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
-  const [activeDraft, setActiveDraft] = useState(false)
-  const [activeFilter, setActiveFilter] = useState(false)
+  const [cityDraft, setCityDraft] = useState('')
+  const [stateDraft, setStateDraft] = useState('')
+  const [statusDraft, setStatusDraft] = useState<'all' | 'active' | 'inactive'>('all')
+  const [appliedCity, setAppliedCity] = useState('')
+  const [appliedState, setAppliedState] = useState('')
+  const [appliedStatus, setAppliedStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   const [modal, setModal] = useState<'create' | 'edit' | 'view' | null>(null)
   const [selected, setSelected] = useState<Employee | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const loadRequestId = useRef(0)
 
   const loadEmployees = useCallback(async () => {
+    const requestId = ++loadRequestId.current
     setLoading(true)
     setError(null)
-    try { setEmployees(await listEmployees(activeFilter, appliedSearch)) } catch (loadError) { setError(getApiErrorMessage(loadError, 'Não foi possível carregar os funcionários.')) } finally { setLoading(false) }
-  }, [activeFilter, appliedSearch])
+    const active = appliedStatus === 'all' ? undefined : appliedStatus === 'active'
+    const hasLocationFilter = Boolean(appliedCity || appliedState)
+    const options = { active, city: appliedCity, state: appliedState }
+    try {
+      const employeesRequest = appliedStatus === 'inactive' || hasLocationFilter
+        ? listEmployees(active === true, appliedSearch, options)
+        : listEmployees(active === true, appliedSearch)
+      const [employeeList, optionList] = await Promise.all([employeesRequest, listEmployees(false)])
+      if (requestId !== loadRequestId.current) return
+      setEmployees(employeeList)
+      setFilterEmployees(optionList)
+    } catch (loadError) { if (requestId === loadRequestId.current) setError(getApiErrorMessage(loadError, 'Não foi possível carregar os funcionários.')) } finally { if (requestId === loadRequestId.current) setLoading(false) }
+  }, [appliedCity, appliedSearch, appliedState, appliedStatus])
 
   // oxlint-disable-next-line
   useEffect(() => { void loadEmployees() }, [loadEmployees])
 
-  const hasDraftFilters = searchDraft.trim() !== '' || activeDraft
-  const hasAppliedFilters = appliedSearch !== '' || activeFilter
-  const applyFilters = () => { setAppliedSearch(searchDraft.trim()); setActiveFilter(activeDraft) }
-  const clearFilters = () => { setSearchDraft(''); setAppliedSearch(''); setActiveDraft(false); setActiveFilter(false) }
+  const hasDraftFilters = Boolean(searchDraft.trim() || cityDraft || stateDraft || statusDraft !== 'all')
+  const hasAppliedFilters = Boolean(appliedSearch || appliedCity || appliedState || appliedStatus !== 'all')
+  const filterCities = useMemo(() => uniqueFilterOptions(filterEmployees.map((employee) => employee.cidade)), [filterEmployees])
+  const filterStates = useMemo(() => uniqueFilterOptions(filterEmployees.map((employee) => employee.estado)), [filterEmployees])
+  const applyFilters = () => { setAppliedSearch(searchDraft.trim()); setAppliedCity(cityDraft); setAppliedState(stateDraft); setAppliedStatus(statusDraft); setFiltersOpen(false) }
+  const clearFilters = () => { setSearchDraft(''); setAppliedSearch(''); setCityDraft(''); setAppliedCity(''); setStateDraft(''); setAppliedState(''); setStatusDraft('all'); setAppliedStatus('all'); setFiltersOpen(false) }
 
   const saveEmployee = async (payload: EmployeePayload) => {
     setSaving(true); setFeedback(null)
-    try { const saved = selected ? await updateEmployee(selected.id, payload) : await createEmployee(payload); setEmployees((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setModal(null); setSelected(null); setFeedback({ kind: 'success', message: selected ? 'Funcionário atualizado com sucesso.' : 'Funcionário criado com sucesso.' }) } catch (saveError) { setFeedback({ kind: 'error', message: getApiErrorMessage(saveError, 'Não foi possível salvar o funcionário.') }) } finally { setSaving(false) }
+    try { const saved = selected ? await updateEmployee(selected.id, payload) : await createEmployee(payload); setEmployees((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setFilterEmployees((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setModal(null); setSelected(null); setFeedback({ kind: 'success', message: selected ? 'Funcionário atualizado com sucesso.' : 'Funcionário criado com sucesso.' }) } catch (saveError) { setFeedback({ kind: 'error', message: getApiErrorMessage(saveError, 'Não foi possível salvar o funcionário.') }) } finally { setSaving(false) }
   }
 
   const removeEmployee = async () => {
     if (!deleteTarget) return
     setDeleting(true); setFeedback(null)
-    try { await deleteEmployee(deleteTarget.id); setEmployees((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Funcionário excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não é possível excluir este funcionário porque há vendas relacionadas.') }) } finally { setDeleting(false); setDeleteTarget(null) }
+    try { await deleteEmployee(deleteTarget.id); setEmployees((current) => current.filter((item) => item.id !== deleteTarget.id)); setFilterEmployees((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Funcionário excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não é possível excluir este funcionário porque há vendas relacionadas.') }) } finally { setDeleting(false); setDeleteTarget(null) }
   }
 
   const formValue: EmployeePayload = selected ? (({ id: _id, ...payload }) => payload)(selected) : emptyEmployee
 
   return <div className="crud-page">
     <div className="crud-page-header"><PageHeader eyebrow="Cadastros" title="Funcionários" description="Organize a equipe que participa da operação." /><button className="button button-primary" type="button" onClick={() => { setSelected(null); setModal('create'); setFeedback(null) }}>+ Novo funcionário</button></div>
-    {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
-    <section className="filter-toolbar" aria-label="Filtros de funcionários">
-      <SearchInput value={searchDraft} onChange={setSearchDraft} onClear={() => setSearchDraft('')} label="Pesquisar funcionários" />
-      <label className="filter-checkbox"><input type="checkbox" checked={activeDraft} onChange={(event) => setActiveDraft(event.target.checked)} /> Somente ativos</label>
-      <div className="filter-actions"><button className="button button-primary" type="button" onClick={applyFilters} disabled={!hasDraftFilters && !hasAppliedFilters}>Aplicar filtros</button><button className="button button-secondary" type="button" onClick={clearFilters} disabled={!hasDraftFilters && !hasAppliedFilters}>Limpar filtros</button></div>
-    </section>
+      {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
+      <section className="filter-toolbar" aria-label="Filtros de funcionários">
+        <SearchInput value={searchDraft} onChange={setSearchDraft} onSearch={(value) => { const search = value.trim(); setAppliedSearch((current) => current === search ? current : search) }} onClear={() => setSearchDraft('')} label="Pesquisar funcionários" />
+        <FilterMenu activeCount={[appliedCity, appliedState, appliedStatus !== 'all' ? appliedStatus : ''].filter(Boolean).length} canClear={hasDraftFilters || hasAppliedFilters} open={filtersOpen} onToggle={() => setFiltersOpen((current) => !current)} onClose={() => setFiltersOpen(false)} onApply={applyFilters} onClear={clearFilters}>
+          <label className="filter-field">Cidade<select value={cityDraft} onChange={(event) => setCityDraft(event.target.value)}><option value="">Todas as cidades</option>{filterCities.map((city) => <option value={city} key={city}>{city}</option>)}</select></label>
+          <label className="filter-field">Estado<select value={stateDraft} onChange={(event) => setStateDraft(event.target.value)}><option value="">Todos os estados</option>{filterStates.map((state) => <option value={state} key={state}>{state}</option>)}</select></label>
+          <label className="filter-field">Status<select value={statusDraft} onChange={(event) => setStatusDraft(event.target.value as 'all' | 'active' | 'inactive')}><option value="all">Todos</option><option value="active">Ativos</option><option value="inactive">Inativos</option></select></label>
+        </FilterMenu>
+      </section>
     {loading ? <LoadingState label="Carregando funcionários..." /> : error ? <ErrorState description={error} onRetry={() => void loadEmployees()} /> : employees.length === 0 ? <div className="data-card"><EmptyState title={hasAppliedFilters ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Nenhum funcionário cadastrado ainda'} description={hasAppliedFilters ? 'Tente ajustar a pesquisa ou limpar os filtros.' : 'Crie o primeiro funcionário responsável pela operação.'} /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Funcionário</th><th>Status</th><th>CPF</th><th>Localização</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{employees.map((employee) => <tr key={employee.id}><td className="data-primary">{employee.nome_completo}<span className="data-secondary">ID {employee.id}</span></td><td><span className={`status-badge ${employee.ativo ? 'status-badge-active' : 'status-badge-inactive'}`}>{employee.ativo ? 'Ativo' : 'Inativo'}</span></td><td>{employee.cpf}</td><td>{employee.cidade} / {employee.estado}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => { setSelected(employee); setModal('view') }}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(employee); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(employee)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
     {modal === 'view' && selected ? <Modal title="Detalhes do funcionário" onClose={() => setModal(null)}><EmployeeDetails employee={selected} /></Modal> : null}
     {(modal === 'create' || modal === 'edit') ? <Modal title={modal === 'edit' ? 'Editar funcionário' : 'Novo funcionário'} description="RG e complemento são opcionais." onClose={() => setModal(null)}><EmployeeForm initialValue={formValue} saving={saving} onCancel={() => setModal(null)} onSave={(payload) => void saveEmployee(payload)} /></Modal> : null}

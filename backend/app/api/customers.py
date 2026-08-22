@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,8 +17,30 @@ router = APIRouter(prefix="/api/customers", tags=["customers"])
 
 
 @router.get("", response_model=list[ClienteRead])
-def list_customers(db: Session = Depends(get_db_session)) -> list[Cliente]:
-    return list(db.scalars(select(Cliente).order_by(Cliente.id)).all())
+def list_customers(
+    search: str | None = Query(default=None),
+    city: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    db: Session = Depends(get_db_session),
+) -> list[Cliente]:
+    query = select(Cliente)
+    normalized_search = search.strip() if search else ""
+    normalized_city = city.strip() if city else ""
+    normalized_state = state.strip() if state else ""
+    if normalized_search:
+        pattern = f"%{normalized_search}%"
+        query = query.where(
+            or_(
+                Cliente.nome.ilike(pattern),
+                Cliente.cidade.ilike(pattern),
+                Cliente.estado.ilike(pattern),
+            )
+        )
+    if normalized_city:
+        query = query.where(Cliente.cidade.ilike(normalized_city))
+    if normalized_state:
+        query = query.where(Cliente.estado.ilike(normalized_state))
+    return list(db.scalars(query.order_by(Cliente.id)).all())
 
 
 @router.get("/{customer_id}", response_model=ClienteDetailRead)

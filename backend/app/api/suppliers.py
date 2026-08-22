@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -29,8 +29,31 @@ def ensure_unique_cnpj(
 
 
 @router.get("", response_model=list[FornecedorRead])
-def list_suppliers(db: Session = Depends(get_db_session)) -> list[Fornecedor]:
-    return list(db.scalars(select(Fornecedor).order_by(Fornecedor.id)).all())
+def list_suppliers(
+    search: str | None = Query(default=None),
+    city: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    db: Session = Depends(get_db_session),
+) -> list[Fornecedor]:
+    query = select(Fornecedor)
+    normalized_search = search.strip() if search else ""
+    normalized_city = city.strip() if city else ""
+    normalized_state = state.strip() if state else ""
+    if normalized_search:
+        pattern = f"%{normalized_search}%"
+        query = query.where(
+            or_(
+                Fornecedor.nome.ilike(pattern),
+                Fornecedor.cnpj.ilike(pattern),
+                Fornecedor.cidade.ilike(pattern),
+                Fornecedor.estado.ilike(pattern),
+            )
+        )
+    if normalized_city:
+        query = query.where(Fornecedor.cidade.ilike(normalized_city))
+    if normalized_state:
+        query = query.where(Fornecedor.estado.ilike(normalized_state))
+    return list(db.scalars(query.order_by(Fornecedor.id)).all())
 
 
 @router.get("/{supplier_id}", response_model=FornecedorDetailRead)

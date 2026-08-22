@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
 import { FeedbackBanner } from '../../components/FeedbackBanner'
+import { FilterMenu } from '../../components/FilterMenu'
 import { LoadingState } from '../../components/LoadingState'
 import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
+import { SearchInput } from '../../components/SearchInput'
 import { ApiError, getApiErrorMessage } from '../../services/httpClient'
 import { listCustomers } from '../customers/api'
 import type { Customer } from '../customers/types'
@@ -13,7 +15,7 @@ import { listEmployees } from '../employees/api'
 import type { Employee } from '../employees/types'
 import { listProducts } from '../products/api'
 import type { Product } from '../products/types'
-import { createSale, deleteSale, getSale, listSales } from './api'
+import { createSale, deleteSale, getSale, listSales, type SaleListFilters } from './api'
 import type { Sale, SaleCreatePayload } from './types'
 
 type DraftSaleItem = {
@@ -457,23 +459,62 @@ export function SalesPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingSaleId, setDeletingSaleId] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [searchDraft, setSearchDraft] = useState('')
+  const [productIdDraft, setProductIdDraft] = useState<number | ''>('')
+  const [customerIdDraft, setCustomerIdDraft] = useState<number | ''>('')
+  const [employeeIdDraft, setEmployeeIdDraft] = useState<number | ''>('')
+  const [dateFromDraft, setDateFromDraft] = useState('')
+  const [dateToDraft, setDateToDraft] = useState('')
+  const [totalMinDraft, setTotalMinDraft] = useState('')
+  const [totalMaxDraft, setTotalMaxDraft] = useState('')
+  const [appliedFilters, setAppliedFilters] = useState<SaleListFilters>({})
+  const [filterCustomers, setFilterCustomers] = useState<Customer[]>([])
+  const [filterEmployees, setFilterEmployees] = useState<Employee[]>([])
+  const [filterProducts, setFilterProducts] = useState<Product[]>([])
+  const [optionsLoading, setOptionsLoading] = useState(true)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const loadRequestId = useRef(0)
 
   const loadSales = useCallback(async () => {
+    const requestId = ++loadRequestId.current
     setLoading(true)
     setError(null)
     try {
-      setSales(await listSales())
+      const saleList = await listSales(appliedFilters)
+      if (requestId !== loadRequestId.current) return
+      setSales(saleList)
     } catch (loadError) {
-      setError(saleErrorMessage(loadError, 'Não foi possível carregar as vendas.'))
+      if (requestId === loadRequestId.current) setError(saleErrorMessage(loadError, 'Não foi possível carregar as vendas.'))
     } finally {
-      setLoading(false)
+      if (requestId === loadRequestId.current) setLoading(false)
     }
-  }, [])
+  }, [appliedFilters])
 
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect
     void loadSales()
   }, [loadSales])
+
+  useEffect(() => {
+    let mounted = true
+    Promise.all([listCustomers(), listEmployees(), listProducts()])
+      .then(([customerList, employeeList, productList]) => {
+        if (!mounted) return
+        setFilterCustomers(customerList)
+        setFilterEmployees(employeeList)
+        setFilterProducts(productList)
+      })
+      .catch((loadError) => {
+        if (mounted) setError(saleErrorMessage(loadError, 'Não foi possível carregar as opções de filtros.'))
+      })
+      .finally(() => { if (mounted) setOptionsLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  const hasDraftFilters = Boolean(searchDraft.trim() || productIdDraft !== '' || customerIdDraft !== '' || employeeIdDraft !== '' || dateFromDraft || dateToDraft || totalMinDraft.trim() || totalMaxDraft.trim())
+  const hasAppliedFilters = Boolean(appliedFilters.search || appliedFilters.productId || appliedFilters.customerId || appliedFilters.employeeId || appliedFilters.dateFrom || appliedFilters.dateTo || appliedFilters.totalMin || appliedFilters.totalMax)
+  const applyFilters = () => { setAppliedFilters({ search: searchDraft.trim(), productId: productIdDraft, customerId: customerIdDraft, employeeId: employeeIdDraft, dateFrom: dateFromDraft, dateTo: dateToDraft, totalMin: totalMinDraft.trim(), totalMax: totalMaxDraft.trim() }); setFiltersOpen(false) }
+  const clearFilters = () => { setSearchDraft(''); setProductIdDraft(''); setCustomerIdDraft(''); setEmployeeIdDraft(''); setDateFromDraft(''); setDateToDraft(''); setTotalMinDraft(''); setTotalMaxDraft(''); setAppliedFilters({}); setFiltersOpen(false) }
 
   const openSaleDetails = async (saleId: number) => {
     setSelectedSaleId(saleId)
@@ -532,8 +573,20 @@ export function SalesPage() {
         <a className="button button-primary" href="/sales/new">+ Nova venda</a>
       </div>
       {feedback ? <FeedbackBanner kind="success" message={feedback} onDismiss={() => setFeedback(null)} /> : null}
-      {loading ? <LoadingState label="Carregando vendas..." /> : error ? <ErrorState description={error} onRetry={() => void loadSales()} /> : sales.length === 0 ? (
-        <div className="data-card sales-empty-card"><EmptyState title="Nenhuma venda registrada ainda" description="Crie sua primeira venda para começar o histórico operacional." /><a className="button button-primary" href="/sales/new">Criar nova venda</a></div>
+      <section className="filter-toolbar" aria-label="Filtros de vendas">
+        <SearchInput value={searchDraft} onChange={setSearchDraft} onSearch={(value) => setAppliedFilters((current) => { const search = value.trim(); if (current.search === search) return current; const { search: _search, ...filters } = current; return search ? { ...filters, search } : filters })} onClear={() => setSearchDraft('')} label="Pesquisar vendas" />
+        <FilterMenu activeCount={[appliedFilters.productId, appliedFilters.customerId, appliedFilters.employeeId, appliedFilters.dateFrom, appliedFilters.dateTo, appliedFilters.totalMin, appliedFilters.totalMax].filter(Boolean).length} canClear={hasDraftFilters || hasAppliedFilters} open={filtersOpen} onToggle={() => setFiltersOpen((current) => !current)} onClose={() => setFiltersOpen(false)} onApply={applyFilters} onClear={clearFilters}>
+          <label className="filter-field">Produto<select value={productIdDraft} onChange={(event) => setProductIdDraft(event.target.value ? Number(event.target.value) : '')}><option value="">Todos os produtos</option>{filterProducts.map((product) => <option value={product.id} key={product.id}>{product.nome}</option>)}</select></label>
+          <label className="filter-field">Cliente<select value={customerIdDraft} onChange={(event) => setCustomerIdDraft(event.target.value ? Number(event.target.value) : '')}><option value="">Todos os clientes</option>{filterCustomers.map((customer) => <option value={customer.id} key={customer.id}>{customer.nome}</option>)}</select></label>
+          <label className="filter-field">Funcionário<select value={employeeIdDraft} onChange={(event) => setEmployeeIdDraft(event.target.value ? Number(event.target.value) : '')}><option value="">Todos os funcionários</option>{filterEmployees.map((employee) => <option value={employee.id} key={employee.id}>{employee.nome_completo}</option>)}</select></label>
+          <label className="filter-field">Data inicial<input type="date" value={dateFromDraft} onChange={(event) => setDateFromDraft(event.target.value)} /></label>
+          <label className="filter-field">Data final<input type="date" value={dateToDraft} onChange={(event) => setDateToDraft(event.target.value)} /></label>
+          <label className="filter-field">Total mínimo<input type="number" min="0" step="0.01" value={totalMinDraft} onChange={(event) => setTotalMinDraft(event.target.value)} /></label>
+          <label className="filter-field">Total máximo<input type="number" min="0" step="0.01" value={totalMaxDraft} onChange={(event) => setTotalMaxDraft(event.target.value)} /></label>
+        </FilterMenu>
+      </section>
+      {loading || optionsLoading ? <LoadingState label="Carregando vendas..." /> : error ? <ErrorState description={error} onRetry={() => void loadSales()} /> : sales.length === 0 ? (
+        <div className="data-card sales-empty-card"><EmptyState title={hasAppliedFilters ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Nenhuma venda registrada ainda'} description={hasAppliedFilters ? 'Tente ajustar a pesquisa ou limpar os filtros.' : 'Crie sua primeira venda para começar o histórico operacional.'} />{!hasAppliedFilters ? <a className="button button-primary" href="/sales/new">Criar nova venda</a> : null}</div>
       ) : (
         <div className="sales-list">
           {sales.map((sale) => <article className="sale-list-card" key={sale.id}><div className="sale-list-header"><div><span className="sale-list-kicker">Venda</span><strong>#{sale.id}</strong></div><span className="sale-list-date">{formatDate(sale.data_venda)}</span></div><dl className="sale-list-meta"><div><dt>Produto</dt><dd className="sale-list-product">{saleProductLabel(sale)}</dd></div><div><dt>Valor Total</dt><dd className="sale-list-total">{formatMoney(sale.total)}</dd></div><div><dt>Cliente</dt><dd>{sale.cliente.nome}</dd></div><div><dt>Funcionário</dt><dd>{sale.funcionario.nome_completo}</dd></div></dl><div className="sale-list-actions"><button className="button button-secondary sale-detail-button" type="button" onClick={() => void openSaleDetails(sale.id)}>Ver detalhes</button><button className="button button-danger sale-delete-button" type="button" onClick={() => requestSaleDeletion(sale)}>Excluir venda</button></div></article>)}

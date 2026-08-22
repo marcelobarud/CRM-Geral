@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
 import { FeedbackBanner } from '../../components/FeedbackBanner'
+import { FilterMenu } from '../../components/FilterMenu'
+import { uniqueFilterOptions } from '../../components/filterOptions'
 import { LoadingState } from '../../components/LoadingState'
 import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
+import { SearchInput } from '../../components/SearchInput'
 import { getApiErrorMessage } from '../../services/httpClient'
 import {
   createCustomer,
@@ -16,6 +19,7 @@ import {
   updateCustomer,
 } from './api'
 import type { Customer, CustomerDetails, CustomerPayload } from './types'
+import type { CustomerListFilters } from './api'
 
 const emptyCustomer: CustomerPayload = {
   nome: '',
@@ -83,8 +87,14 @@ function CustomerDetails({ customer }: { customer: CustomerDetails }) {
 
 export function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [filterCustomers, setFilterCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchDraft, setSearchDraft] = useState('')
+  const [cityDraft, setCityDraft] = useState('')
+  const [stateDraft, setStateDraft] = useState('')
+  const [appliedFilters, setAppliedFilters] = useState<CustomerListFilters>({})
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   const [modal, setModal] = useState<'create' | 'edit' | 'view' | null>(null)
   const [selected, setSelected] = useState<Customer | null>(null)
@@ -94,14 +104,29 @@ export function CustomersPage() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const loadRequestId = useRef(0)
 
   const loadCustomers = useCallback(async () => {
+    const requestId = ++loadRequestId.current
+    setLoading(true)
     setError(null)
-    try { setCustomers(await listCustomers()) } catch (loadError) { setError(getApiErrorMessage(loadError, 'Não foi possível carregar os clientes.')) } finally { setLoading(false) }
-  }, [])
+    try {
+      const [customerList, optionList] = await Promise.all([listCustomers(appliedFilters), listCustomers()])
+      if (requestId !== loadRequestId.current) return
+      setCustomers(customerList)
+      setFilterCustomers(optionList)
+    } catch (loadError) { if (requestId === loadRequestId.current) setError(getApiErrorMessage(loadError, 'Não foi possível carregar os clientes.')) } finally { if (requestId === loadRequestId.current) setLoading(false) }
+  }, [appliedFilters])
 
   // oxlint-disable-next-line
   useEffect(() => { void loadCustomers() }, [loadCustomers])
+
+  const hasDraftFilters = Boolean(searchDraft.trim() || cityDraft || stateDraft)
+  const hasAppliedFilters = Boolean(appliedFilters.search || appliedFilters.city || appliedFilters.state)
+  const filterCities = useMemo(() => uniqueFilterOptions(filterCustomers.map((customer) => customer.cidade)), [filterCustomers])
+  const filterStates = useMemo(() => uniqueFilterOptions(filterCustomers.map((customer) => customer.estado)), [filterCustomers])
+  const applyFilters = () => { setAppliedFilters({ search: searchDraft.trim(), city: cityDraft, state: stateDraft }); setFiltersOpen(false) }
+  const clearFilters = () => { setSearchDraft(''); setCityDraft(''); setStateDraft(''); setAppliedFilters({}); setFiltersOpen(false) }
 
   const openCustomerDetails = async (customer: Customer) => {
     setSelected(customer)
@@ -124,6 +149,7 @@ export function CustomersPage() {
     try {
       const saved = selected ? await updateCustomer(selected.id, payload) : await createCustomer(payload)
       setCustomers((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved])
+      setFilterCustomers((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved])
       setModal(null)
       setSelected(null)
       setFeedback({ kind: 'success', message: selected ? 'Cliente atualizado com sucesso.' : 'Cliente criado com sucesso.' })
@@ -134,7 +160,7 @@ export function CustomersPage() {
     if (!deleteTarget) return
     setDeleting(true)
     setFeedback(null)
-    try { await deleteCustomer(deleteTarget.id); setCustomers((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Cliente excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não foi possível excluir o cliente.') }) } finally { setDeleting(false); setDeleteTarget(null) }
+    try { await deleteCustomer(deleteTarget.id); setCustomers((current) => current.filter((item) => item.id !== deleteTarget.id)); setFilterCustomers((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Cliente excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não foi possível excluir o cliente.') }) } finally { setDeleting(false); setDeleteTarget(null) }
   }
 
   const formValue: CustomerPayload = selected
@@ -145,7 +171,14 @@ export function CustomersPage() {
     <div className="crud-page">
       <div className="crud-page-header"><PageHeader eyebrow="Cadastros" title="Clientes" description="Organize as pessoas que fazem parte do seu negócio." /><button className="button button-primary" type="button" onClick={() => { setSelected(null); setModal('create'); setFeedback(null) }}>+ Novo cliente</button></div>
       {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
-      {loading ? <LoadingState label="Carregando clientes..." /> : error ? <ErrorState description={error} onRetry={() => { setLoading(true); void loadCustomers() }} /> : customers.length === 0 ? <div className="data-card"><EmptyState title="Nenhum cliente cadastrado ainda" description="Crie o primeiro cliente para começar sua base de relacionamento." /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Cliente</th><th>Localização</th><th>Endereço</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{customers.map((customer) => <tr key={customer.id}><td className="data-primary">{customer.nome}<span className="data-secondary">ID {customer.id}</span></td><td>{customer.cidade} / {customer.estado}</td><td>{customer.rua}, {customer.numero}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => void openCustomerDetails(customer)}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(customer); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(customer)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
+      <section className="filter-toolbar" aria-label="Filtros de clientes">
+        <SearchInput value={searchDraft} onChange={setSearchDraft} onSearch={(value) => setAppliedFilters((current) => { const search = value.trim(); if (current.search === search) return current; const { search: _search, ...filters } = current; return search ? { ...filters, search } : filters })} onClear={() => setSearchDraft('')} label="Pesquisar clientes" />
+        <FilterMenu activeCount={[appliedFilters.city, appliedFilters.state].filter(Boolean).length} canClear={hasDraftFilters || hasAppliedFilters} open={filtersOpen} onToggle={() => setFiltersOpen((current) => !current)} onClose={() => setFiltersOpen(false)} onApply={applyFilters} onClear={clearFilters}>
+          <label className="filter-field">Cidade<select value={cityDraft} onChange={(event) => setCityDraft(event.target.value)}><option value="">Todas as cidades</option>{filterCities.map((city) => <option value={city} key={city}>{city}</option>)}</select></label>
+          <label className="filter-field">Estado<select value={stateDraft} onChange={(event) => setStateDraft(event.target.value)}><option value="">Todos os estados</option>{filterStates.map((state) => <option value={state} key={state}>{state}</option>)}</select></label>
+        </FilterMenu>
+      </section>
+      {loading ? <LoadingState label="Carregando clientes..." /> : error ? <ErrorState description={error} onRetry={() => void loadCustomers()} /> : customers.length === 0 ? <div className="data-card"><EmptyState title={hasAppliedFilters ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Nenhum cliente cadastrado ainda'} description={hasAppliedFilters ? 'Tente ajustar a pesquisa ou limpar os filtros.' : 'Crie o primeiro cliente para começar sua base de relacionamento.'} /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Cliente</th><th>Localização</th><th>Endereço</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{customers.map((customer) => <tr key={customer.id}><td className="data-primary">{customer.nome}<span className="data-secondary">ID {customer.id}</span></td><td>{customer.cidade} / {customer.estado}</td><td>{customer.rua}, {customer.numero}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => void openCustomerDetails(customer)}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(customer); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(customer)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
       {modal === 'view' && selected ? <Modal title="Detalhes do cliente" size="large" onClose={() => { setModal(null); setSelectedDetails(null) }}>{detailsLoading ? <LoadingState label="Carregando detalhes do cliente..." /> : detailsError ? <ErrorState description={detailsError} onRetry={() => void openCustomerDetails(selected)} /> : selectedDetails ? <CustomerDetails customer={selectedDetails} /> : null}</Modal> : null}
       {(modal === 'create' || modal === 'edit') ? <Modal title={modal === 'edit' ? 'Editar cliente' : 'Novo cliente'} description="Preencha os campos obrigatórios para continuar." onClose={() => setModal(null)}><CustomerForm initialValue={formValue} saving={saving} onCancel={() => setModal(null)} onSave={(payload) => void saveCustomer(payload)} /></Modal> : null}
       {deleteTarget ? <ConfirmDialog title="Excluir cliente?" description={`O cadastro de ${deleteTarget.nome} será removido. Essa ação não pode ser desfeita.`} busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={() => void removeCustomer()} /> : null}

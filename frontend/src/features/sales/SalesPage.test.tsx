@@ -4,10 +4,16 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../../services/httpClient'
+import * as customersApi from '../customers/api'
+import * as employeesApi from '../employees/api'
+import * as productsApi from '../products/api'
 import * as salesApi from './api'
 import { SalesPage } from './SalesPages'
 
 vi.mock('./api', () => ({ listSales: vi.fn(), getSale: vi.fn(), deleteSale: vi.fn() }))
+vi.mock('../customers/api', () => ({ listCustomers: vi.fn() }))
+vi.mock('../employees/api', () => ({ listEmployees: vi.fn() }))
+vi.mock('../products/api', () => ({ listProducts: vi.fn() }))
 
 const sale = {
   id: 70,
@@ -34,13 +40,16 @@ describe('SalesPage', () => {
     vi.mocked(salesApi.listSales).mockResolvedValue([sale])
     vi.mocked(salesApi.getSale).mockResolvedValue(sale)
     vi.mocked(salesApi.deleteSale).mockResolvedValue(undefined)
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([{ id: 10, nome: 'Cliente Histórico', cidade: 'São Paulo', estado: 'SP', rua: 'Rua A', numero: '1', complemento: null }])
+    vi.mocked(employeesApi.listEmployees).mockResolvedValue([{ id: 20, nome_completo: 'Funcionário Histórico', cidade: 'São Paulo', estado: 'SP', rua: 'Rua B', numero: '2', complemento: null, cpf: '123.456.789-09', rg: null, data_nascimento: '1990-01-01', ativo: false }])
+    vi.mocked(productsApi.listProducts).mockResolvedValue([{ id: 30, nome: 'Produto Histórico', categoria: 'Geral', preco_custo: '10.00', preco_venda: '12.34', fornecedor_id: 40 }])
   })
 
   it('renders the list and shows historical prices and totals in details', async () => {
     render(<SalesPage />)
     await screen.findByText('#70')
-    expect(screen.getByText('Produto Histórico')).toBeTruthy()
-    expect(screen.getByText('Cliente Histórico')).toBeTruthy()
+    expect(screen.getAllByText('Produto Histórico').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Cliente Histórico').length).toBeGreaterThan(0)
     expect(screen.getByText('R$ 18,51')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Ver detalhes' }))
@@ -86,6 +95,29 @@ describe('SalesPage', () => {
 
     expect(await screen.findByText('Falha ao consultar vendas.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeTruthy()
+  })
+
+  it('applies the combined historical filters and clears them', async () => {
+    render(<SalesPage />)
+    await screen.findByText('#70')
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar vendas' }), { target: { value: '  Produto  ' } })
+    expect(screen.queryByRole('dialog', { name: 'Filtros detalhados' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }))
+    expect(screen.getByRole('option', { name: 'Produto Histórico' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Cliente Histórico' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Funcionário Histórico' })).toBeTruthy()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Produto' }), { target: { value: '30' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Cliente' }), { target: { value: '10' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Funcionário' }), { target: { value: '20' } })
+    fireEvent.change(screen.getByLabelText('Data inicial'), { target: { value: '2026-08-20' } })
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Total mínimo' }), { target: { value: '10.00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
+
+    await waitFor(() => expect(salesApi.listSales).toHaveBeenLastCalledWith({ search: 'Produto', productId: 30, customerId: 10, employeeId: 20, dateFrom: '2026-08-20', dateTo: '', totalMin: '10.00', totalMax: '' }))
+    fireEvent.click(screen.getByRole('button', { name: /Filtros \(5\)/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+    await waitFor(() => expect(salesApi.listSales).toHaveBeenLastCalledWith({}))
   })
 
   it('opens and cancels the explicit sale deletion confirmation', async () => {

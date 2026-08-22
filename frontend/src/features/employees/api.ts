@@ -1,11 +1,26 @@
 import { request, requestJson } from '../../services/httpClient'
 import type { Employee, EmployeePayload } from './types'
 
-export function listEmployees(activeOnly = false, search = ''): Promise<Employee[]> {
+export type EmployeeListOptions = {
+  active?: boolean
+  city?: string
+  state?: string
+}
+
+export function listEmployees(
+  activeOnly = false,
+  search = '',
+  options: EmployeeListOptions = {},
+): Promise<Employee[]> {
   const params = new URLSearchParams()
-  if (activeOnly) params.set('active', 'true')
+  const active = options.active ?? (activeOnly ? true : undefined)
+  if (active !== undefined) params.set('active', String(active))
   const normalizedSearch = search.trim()
   if (normalizedSearch) params.set('search', normalizedSearch)
+  const city = options.city?.trim()
+  const state = options.state?.trim()
+  if (city) params.set('city', city)
+  if (state) params.set('state', state)
   const query = params.toString()
   return request<Employee[]>(`/api/employees${query ? `?${query}` : ''}`)
 }

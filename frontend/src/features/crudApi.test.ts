@@ -26,6 +26,7 @@ import {
   listSuppliers,
   updateSupplier,
 } from './suppliers/api'
+import { listSales } from './sales/api'
 
 const customer = {
   id: 1,
@@ -127,6 +128,15 @@ describe('customers API', () => {
       expect.objectContaining({ method: 'DELETE' }),
     )
   })
+
+  it('encodes search and location filters', async () => {
+    const fetchMock = mockFetch(response([customer]))
+    await listCustomers({ search: '  Ana  ', city: 'São Paulo', state: 'SP' })
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://127.0.0.1:8000/api/customers?search=Ana&city=S%C3%A3o+Paulo&state=SP',
+      expect.anything(),
+    )
+  })
 })
 
 describe('suppliers API', () => {
@@ -152,6 +162,15 @@ describe('suppliers API', () => {
 
     fetchMock.mockResolvedValueOnce(response({ detail: 'Fornecedor possui produtos relacionados e não pode ser excluído.' }, 409))
     await expect(deleteSupplier(supplier.id)).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('encodes search and location filters', async () => {
+    const fetchMock = mockFetch(response([supplier]))
+    await listSuppliers({ search: '  Fornecedor  ', city: 'Campinas', state: 'SP' })
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://127.0.0.1:8000/api/suppliers?search=Fornecedor&city=Campinas&state=SP',
+      expect.anything(),
+    )
   })
 })
 
@@ -190,6 +209,15 @@ describe('employees API', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:8000/api/employees?active=true&search=Ana',
       expect.objectContaining({ headers: expect.objectContaining({ Accept: 'application/json' }) }),
+    )
+  })
+
+  it('encodes inactive status and location filters', async () => {
+    const fetchMock = mockFetch(response([employee]))
+    await listEmployees(false, 'Ana', { active: false, city: 'Recife', state: 'PE' })
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://127.0.0.1:8000/api/employees?active=false&search=Ana&city=Recife&state=PE',
+      expect.anything(),
     )
   })
 
@@ -237,5 +265,25 @@ describe('products API', () => {
     mockFetch(response({ detail: 'Produto possui itens de venda relacionados e não pode ser excluído.' }, 409))
     const error = await deleteProduct(product.id).catch((value: unknown) => value)
     expect(getApiErrorMessage(error, 'fallback')).toContain('itens de venda relacionados')
+  })
+
+  it('encodes product relationship and decimal range filters', async () => {
+    const fetchMock = mockFetch(response([product]))
+    await listProducts({ search: 'Produto', category: 'Categoria A', supplierId: 2, costMin: '10.50', costMax: '20.00', salePriceMin: '18.90', salePriceMax: '30.00' })
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://127.0.0.1:8000/api/products?search=Produto&category=Categoria+A&supplier_id=2&cost_min=10.50&cost_max=20.00&sale_price_min=18.90&sale_price_max=30.00',
+      expect.anything(),
+    )
+  })
+})
+
+describe('sales API', () => {
+  it('encodes all explicit historical sales filters', async () => {
+    const fetchMock = mockFetch(response([]))
+    await listSales({ search: 'Notebook', productId: 4, customerId: 1, employeeId: 3, dateFrom: '2026-08-20', dateTo: '2026-08-21', totalMin: '100.00', totalMax: '200.00' })
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://127.0.0.1:8000/api/sales?search=Notebook&product_id=4&customer_id=1&employee_id=3&date_from=2026-08-20&date_to=2026-08-21&total_min=100.00&total_max=200.00',
+      expect.anything(),
+    )
   })
 })

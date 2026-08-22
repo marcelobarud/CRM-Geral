@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as suppliersApi from './api'
@@ -58,5 +58,39 @@ describe('SuppliersPage relational details', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ver' }))
 
     expect(await screen.findByText('Nenhum produto associado a este fornecedor.')).toBeTruthy()
+  })
+
+  it('applies and clears the visible supplier filters', async () => {
+    render(<SuppliersPage />)
+
+    await screen.findByText('Fornecedor de teste')
+    expect(screen.queryByRole('dialog', { name: 'Filtros detalhados' })).toBeNull()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar fornecedores' }), { target: { value: 'Fornecedor' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }))
+    expect(screen.getByRole('option', { name: 'São Paulo' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'SP' })).toBeTruthy()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Cidade' }), { target: { value: 'São Paulo' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Estado' }), { target: { value: 'SP' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
+
+    await waitFor(() => expect(suppliersApi.listSuppliers).toHaveBeenCalledWith({ search: 'Fornecedor', city: 'São Paulo', state: 'SP' }))
+    fireEvent.click(screen.getByRole('button', { name: /Filtros \(2\)/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+    await waitFor(() => expect(suppliersApi.listSuppliers).toHaveBeenCalledWith({}))
+  })
+
+  it('updates the global search after a debounce and restores the full list when cleared', async () => {
+    render(<SuppliersPage />)
+
+    await screen.findByText('Fornecedor de teste')
+    const search = screen.getByRole('searchbox', { name: 'Pesquisar fornecedores' })
+    fireEvent.change(search, { target: { value: 'For' } })
+    fireEvent.change(search, { target: { value: 'Fornecedor' } })
+
+    await waitFor(() => expect(suppliersApi.listSuppliers).toHaveBeenCalledWith({ search: 'Fornecedor' }), { timeout: 1000 })
+    expect(suppliersApi.listSuppliers).not.toHaveBeenCalledWith({ search: 'For' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar pesquisa' }))
+    await waitFor(() => expect(suppliersApi.listSuppliers).toHaveBeenCalledWith({}), { timeout: 1000 })
   })
 })

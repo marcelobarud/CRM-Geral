@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
 import { FeedbackBanner } from '../../components/FeedbackBanner'
+import { FilterMenu } from '../../components/FilterMenu'
+import { uniqueFilterOptions } from '../../components/filterOptions'
 import { LoadingState } from '../../components/LoadingState'
 import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
+import { SearchInput } from '../../components/SearchInput'
 import { getApiErrorMessage } from '../../services/httpClient'
-import { listProductSuppliers, createProduct, deleteProduct, listProducts, updateProduct } from './api'
+import { createProduct, deleteProduct, listProductSuppliers, listProducts, updateProduct, type ProductListFilters } from './api'
 import type { Product, ProductPayload } from './types'
 import type { Supplier } from '../suppliers/types'
 
@@ -38,29 +41,46 @@ function ProductDetails({ product, supplierName }: { product: Product; supplierN
 
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
+  const [filterProducts, setFilterProducts] = useState<Product[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchDraft, setSearchDraft] = useState('')
+  const [categoryDraft, setCategoryDraft] = useState('')
+  const [supplierDraft, setSupplierDraft] = useState<number | ''>('')
+  const [costMinDraft, setCostMinDraft] = useState('')
+  const [costMaxDraft, setCostMaxDraft] = useState('')
+  const [salePriceMinDraft, setSalePriceMinDraft] = useState('')
+  const [salePriceMaxDraft, setSalePriceMaxDraft] = useState('')
+  const [appliedFilters, setAppliedFilters] = useState<ProductListFilters>({})
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   const [modal, setModal] = useState<'create' | 'edit' | 'view' | null>(null)
   const [selected, setSelected] = useState<Product | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const loadRequestId = useRef(0)
 
-  const loadProducts = useCallback(async () => { setError(null); try { const [productList, supplierList] = await Promise.all([listProducts(), listProductSuppliers()]); setProducts(productList); setSuppliers(supplierList) } catch (loadError) { setError(getApiErrorMessage(loadError, 'Não foi possível carregar produtos e fornecedores.')) } finally { setLoading(false) } }, [])
+  const loadProducts = useCallback(async () => { const requestId = ++loadRequestId.current; setLoading(true); setError(null); try { const [productList, optionList, supplierList] = await Promise.all([listProducts(appliedFilters), listProducts(), listProductSuppliers()]); if (requestId !== loadRequestId.current) return; setProducts(productList); setFilterProducts(optionList); setSuppliers(supplierList) } catch (loadError) { if (requestId === loadRequestId.current) setError(getApiErrorMessage(loadError, 'Não foi possível carregar produtos e fornecedores.')) } finally { if (requestId === loadRequestId.current) setLoading(false) } }, [appliedFilters])
   // oxlint-disable-next-line
   useEffect(() => { void loadProducts() }, [loadProducts])
 
+  const hasDraftFilters = Boolean(searchDraft.trim() || categoryDraft.trim() || supplierDraft !== '' || costMinDraft.trim() || costMaxDraft.trim() || salePriceMinDraft.trim() || salePriceMaxDraft.trim())
+  const hasAppliedFilters = Boolean(appliedFilters.search || appliedFilters.category || appliedFilters.supplierId || appliedFilters.costMin || appliedFilters.costMax || appliedFilters.salePriceMin || appliedFilters.salePriceMax)
+  const filterCategories = uniqueFilterOptions(filterProducts.map((product) => product.categoria))
+  const applyFilters = () => { setAppliedFilters({ search: searchDraft.trim(), category: categoryDraft, supplierId: supplierDraft, costMin: costMinDraft.trim(), costMax: costMaxDraft.trim(), salePriceMin: salePriceMinDraft.trim(), salePriceMax: salePriceMaxDraft.trim() }); setFiltersOpen(false) }
+  const clearFilters = () => { setSearchDraft(''); setCategoryDraft(''); setSupplierDraft(''); setCostMinDraft(''); setCostMaxDraft(''); setSalePriceMinDraft(''); setSalePriceMaxDraft(''); setAppliedFilters({}); setFiltersOpen(false) }
+
   const saveProduct = async (payload: ProductPayload) => {
     setSaving(true); setFeedback(null)
-    try { const saved = selected ? await updateProduct(selected.id, payload) : await createProduct(payload); setProducts((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setModal(null); setSelected(null); setFeedback({ kind: 'success', message: selected ? 'Produto atualizado com sucesso.' : 'Produto criado com sucesso.' }) } catch (saveError) { setFeedback({ kind: 'error', message: getApiErrorMessage(saveError, 'Não foi possível salvar o produto.') }) } finally { setSaving(false) }
+    try { const saved = selected ? await updateProduct(selected.id, payload) : await createProduct(payload); setProducts((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setFilterProducts((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setModal(null); setSelected(null); setFeedback({ kind: 'success', message: selected ? 'Produto atualizado com sucesso.' : 'Produto criado com sucesso.' }) } catch (saveError) { setFeedback({ kind: 'error', message: getApiErrorMessage(saveError, 'Não foi possível salvar o produto.') }) } finally { setSaving(false) }
   }
 
   const removeProduct = async () => {
     if (!deleteTarget) return
     setDeleting(true); setFeedback(null)
-    try { await deleteProduct(deleteTarget.id); setProducts((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Produto excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não é possível excluir este produto porque há itens de venda relacionados.') }) } finally { setDeleting(false); setDeleteTarget(null) }
+    try { await deleteProduct(deleteTarget.id); setProducts((current) => current.filter((item) => item.id !== deleteTarget.id)); setFilterProducts((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Produto excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não é possível excluir este produto porque há itens de venda relacionados.') }) } finally { setDeleting(false); setDeleteTarget(null) }
   }
 
   const supplierName = (supplierId: number) => suppliers.find((supplier) => supplier.id === supplierId)?.nome || 'Fornecedor não encontrado'
@@ -69,8 +89,19 @@ export function ProductsPage() {
     : emptyProduct
   return <div className="crud-page">
     <div className="crud-page-header"><PageHeader eyebrow="Cadastros" title="Produtos" description="Mantenha seu catálogo e seus preços organizados." /><button className="button button-primary" type="button" onClick={() => { setSelected(null); setModal('create'); setFeedback(null) }}>+ Novo produto</button></div>
-    {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
-    {loading ? <LoadingState label="Carregando produtos..." /> : error ? <ErrorState description={error} onRetry={() => { setLoading(true); void loadProducts() }} /> : products.length === 0 ? <div className="data-card"><EmptyState title="Nenhum produto cadastrado ainda" description="Crie um produto e selecione um fornecedor existente." /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Produto</th><th>Categoria</th><th>Fornecedor</th><th>Preço de venda</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{products.map((product) => <tr key={product.id}><td className="data-primary">{product.nome}<span className="data-secondary">ID {product.id}</span></td><td>{product.categoria}</td><td>{supplierName(product.fornecedor_id)}</td><td>{displayMoney(product.preco_venda)}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => { setSelected(product); setModal('view') }}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(product); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(product)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
+      {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
+      <section className="filter-toolbar" aria-label="Filtros de produtos">
+        <SearchInput value={searchDraft} onChange={setSearchDraft} onSearch={(value) => setAppliedFilters((current) => { const search = value.trim(); if (current.search === search) return current; const { search: _search, ...filters } = current; return search ? { ...filters, search } : filters })} onClear={() => setSearchDraft('')} label="Pesquisar produtos" />
+        <FilterMenu activeCount={[appliedFilters.category, appliedFilters.supplierId, appliedFilters.costMin, appliedFilters.costMax, appliedFilters.salePriceMin, appliedFilters.salePriceMax].filter(Boolean).length} canClear={hasDraftFilters || hasAppliedFilters} open={filtersOpen} onToggle={() => setFiltersOpen((current) => !current)} onClose={() => setFiltersOpen(false)} onApply={applyFilters} onClear={clearFilters}>
+          <label className="filter-field">Categoria<select value={categoryDraft} onChange={(event) => setCategoryDraft(event.target.value)}><option value="">Todas as categorias</option>{filterCategories.map((category) => <option value={category} key={category}>{category}</option>)}</select></label>
+          <label className="filter-field">Fornecedor<select value={supplierDraft} onChange={(event) => setSupplierDraft(event.target.value ? Number(event.target.value) : '')}><option value="">Todos os fornecedores</option>{suppliers.map((supplier) => <option value={supplier.id} key={supplier.id}>{supplier.nome}</option>)}</select></label>
+          <label className="filter-field">Custo mínimo<input type="number" min="0" step="0.01" value={costMinDraft} onChange={(event) => setCostMinDraft(event.target.value)} /></label>
+          <label className="filter-field">Custo máximo<input type="number" min="0" step="0.01" value={costMaxDraft} onChange={(event) => setCostMaxDraft(event.target.value)} /></label>
+          <label className="filter-field">Venda mínima<input type="number" min="0" step="0.01" value={salePriceMinDraft} onChange={(event) => setSalePriceMinDraft(event.target.value)} /></label>
+          <label className="filter-field">Venda máxima<input type="number" min="0" step="0.01" value={salePriceMaxDraft} onChange={(event) => setSalePriceMaxDraft(event.target.value)} /></label>
+        </FilterMenu>
+      </section>
+    {loading ? <LoadingState label="Carregando produtos..." /> : error ? <ErrorState description={error} onRetry={() => void loadProducts()} /> : products.length === 0 ? <div className="data-card"><EmptyState title={hasAppliedFilters ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Nenhum produto cadastrado ainda'} description={hasAppliedFilters ? 'Tente ajustar a pesquisa ou limpar os filtros.' : 'Crie um produto e selecione um fornecedor existente.'} /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Produto</th><th>Categoria</th><th>Fornecedor</th><th>Preço de custo</th><th>Preço de venda</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{products.map((product) => <tr key={product.id}><td className="data-primary">{product.nome}<span className="data-secondary">ID {product.id}</span></td><td>{product.categoria}</td><td>{supplierName(product.fornecedor_id)}</td><td>{displayMoney(product.preco_custo)}</td><td>{displayMoney(product.preco_venda)}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => { setSelected(product); setModal('view') }}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(product); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(product)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
     {modal === 'view' && selected ? <Modal title="Detalhes do produto" onClose={() => setModal(null)}><ProductDetails product={selected} supplierName={supplierName(selected.fornecedor_id)} /></Modal> : null}
     {(modal === 'create' || modal === 'edit') ? <Modal title={modal === 'edit' ? 'Editar produto' : 'Novo produto'} description="Selecione um fornecedor real e informe os valores com precisão." onClose={() => setModal(null)}><ProductForm initialValue={formValue} suppliers={suppliers} saving={saving} onCancel={() => setModal(null)} onSave={(payload) => void saveProduct(payload)} /></Modal> : null}
     {deleteTarget ? <ConfirmDialog title="Excluir produto?" description={`O cadastro de ${deleteTarget.nome} será removido. Itens de venda relacionados impedem a exclusão.`} busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={() => void removeProduct()} /> : null}

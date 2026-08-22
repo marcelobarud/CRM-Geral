@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorState } from '../../components/ErrorState'
 import { FeedbackBanner } from '../../components/FeedbackBanner'
+import { FilterMenu } from '../../components/FilterMenu'
+import { uniqueFilterOptions } from '../../components/filterOptions'
 import { LoadingState } from '../../components/LoadingState'
 import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
+import { SearchInput } from '../../components/SearchInput'
 import { getApiErrorMessage } from '../../services/httpClient'
-import { createSupplier, deleteSupplier, getSupplier, listSuppliers, updateSupplier } from './api'
+import { createSupplier, deleteSupplier, getSupplier, listSuppliers, updateSupplier, type SupplierListFilters } from './api'
 import type { Supplier, SupplierDetails, SupplierPayload } from './types'
 
 const emptySupplier: SupplierPayload = { nome: '', cidade: '', estado: '', rua: '', numero: '', complemento: '', cnpj: '' }
@@ -35,8 +38,14 @@ function SupplierDetails({ supplier }: { supplier: SupplierDetails }) {
 
 export function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [filterSuppliers, setFilterSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchDraft, setSearchDraft] = useState('')
+  const [cityDraft, setCityDraft] = useState('')
+  const [stateDraft, setStateDraft] = useState('')
+  const [appliedFilters, setAppliedFilters] = useState<SupplierListFilters>({})
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
   const [modal, setModal] = useState<'create' | 'edit' | 'view' | null>(null)
   const [selected, setSelected] = useState<Supplier | null>(null)
@@ -46,10 +55,18 @@ export function SuppliersPage() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const loadRequestId = useRef(0)
 
-  const loadSuppliers = useCallback(async () => { setError(null); try { setSuppliers(await listSuppliers()) } catch (loadError) { setError(getApiErrorMessage(loadError, 'Não foi possível carregar os fornecedores.')) } finally { setLoading(false) } }, [])
+  const loadSuppliers = useCallback(async () => { const requestId = ++loadRequestId.current; setLoading(true); setError(null); try { const [supplierList, optionList] = await Promise.all([listSuppliers(appliedFilters), listSuppliers()]); if (requestId !== loadRequestId.current) return; setSuppliers(supplierList); setFilterSuppliers(optionList) } catch (loadError) { if (requestId === loadRequestId.current) setError(getApiErrorMessage(loadError, 'Não foi possível carregar os fornecedores.')) } finally { if (requestId === loadRequestId.current) setLoading(false) } }, [appliedFilters])
   // oxlint-disable-next-line
   useEffect(() => { void loadSuppliers() }, [loadSuppliers])
+
+  const hasDraftFilters = Boolean(searchDraft.trim() || cityDraft || stateDraft)
+  const hasAppliedFilters = Boolean(appliedFilters.search || appliedFilters.city || appliedFilters.state)
+  const filterCities = useMemo(() => uniqueFilterOptions(filterSuppliers.map((supplier) => supplier.cidade)), [filterSuppliers])
+  const filterStates = useMemo(() => uniqueFilterOptions(filterSuppliers.map((supplier) => supplier.estado)), [filterSuppliers])
+  const applyFilters = () => { setAppliedFilters({ search: searchDraft.trim(), city: cityDraft, state: stateDraft }); setFiltersOpen(false) }
+  const clearFilters = () => { setSearchDraft(''); setCityDraft(''); setStateDraft(''); setAppliedFilters({}); setFiltersOpen(false) }
 
   const openSupplierDetails = async (supplier: Supplier) => {
     setSelected(supplier)
@@ -68,13 +85,13 @@ export function SuppliersPage() {
 
   const saveSupplier = async (payload: SupplierPayload) => {
     setSaving(true); setFeedback(null)
-    try { const saved = selected ? await updateSupplier(selected.id, payload) : await createSupplier(payload); setSuppliers((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setModal(null); setSelected(null); setFeedback({ kind: 'success', message: selected ? 'Fornecedor atualizado com sucesso.' : 'Fornecedor criado com sucesso.' }) } catch (saveError) { setFeedback({ kind: 'error', message: getApiErrorMessage(saveError, 'Não foi possível salvar o fornecedor.') }) } finally { setSaving(false) }
+    try { const saved = selected ? await updateSupplier(selected.id, payload) : await createSupplier(payload); setSuppliers((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setFilterSuppliers((current) => selected ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]); setModal(null); setSelected(null); setFeedback({ kind: 'success', message: selected ? 'Fornecedor atualizado com sucesso.' : 'Fornecedor criado com sucesso.' }) } catch (saveError) { setFeedback({ kind: 'error', message: getApiErrorMessage(saveError, 'Não foi possível salvar o fornecedor.') }) } finally { setSaving(false) }
   }
 
   const removeSupplier = async () => {
     if (!deleteTarget) return
     setDeleting(true); setFeedback(null)
-    try { await deleteSupplier(deleteTarget.id); setSuppliers((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Fornecedor excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não é possível excluir este fornecedor porque há produtos relacionados.') }) } finally { setDeleting(false); setDeleteTarget(null) }
+    try { await deleteSupplier(deleteTarget.id); setSuppliers((current) => current.filter((item) => item.id !== deleteTarget.id)); setFilterSuppliers((current) => current.filter((item) => item.id !== deleteTarget.id)); setFeedback({ kind: 'success', message: 'Fornecedor excluído com sucesso.' }) } catch (deleteError) { setFeedback({ kind: 'error', message: getApiErrorMessage(deleteError, 'Não é possível excluir este fornecedor porque há produtos relacionados.') }) } finally { setDeleting(false); setDeleteTarget(null) }
   }
 
   const formValue: SupplierPayload = selected
@@ -82,8 +99,15 @@ export function SuppliersPage() {
     : emptySupplier
   return <div className="crud-page">
     <div className="crud-page-header"><PageHeader eyebrow="Cadastros" title="Fornecedores" description="Mantenha os parceiros do seu negócio organizados." /><button className="button button-primary" type="button" onClick={() => { setSelected(null); setModal('create'); setFeedback(null) }}>+ Novo fornecedor</button></div>
-    {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
-    {loading ? <LoadingState label="Carregando fornecedores..." /> : error ? <ErrorState description={error} onRetry={() => { setLoading(true); void loadSuppliers() }} /> : suppliers.length === 0 ? <div className="data-card"><EmptyState title="Nenhum fornecedor cadastrado ainda" description="Crie o primeiro fornecedor para relacionar seus produtos." /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Fornecedor</th><th>CNPJ</th><th>Localização</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{suppliers.map((supplier) => <tr key={supplier.id}><td className="data-primary">{supplier.nome}<span className="data-secondary">ID {supplier.id}</span></td><td>{supplier.cnpj}</td><td>{supplier.cidade} / {supplier.estado}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => void openSupplierDetails(supplier)}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(supplier); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(supplier)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
+      {feedback ? <FeedbackBanner kind={feedback.kind} message={feedback.message} onDismiss={() => setFeedback(null)} /> : null}
+      <section className="filter-toolbar" aria-label="Filtros de fornecedores">
+        <SearchInput value={searchDraft} onChange={setSearchDraft} onSearch={(value) => setAppliedFilters((current) => { const search = value.trim(); if (current.search === search) return current; const { search: _search, ...filters } = current; return search ? { ...filters, search } : filters })} onClear={() => setSearchDraft('')} label="Pesquisar fornecedores" />
+        <FilterMenu activeCount={[appliedFilters.city, appliedFilters.state].filter(Boolean).length} canClear={hasDraftFilters || hasAppliedFilters} open={filtersOpen} onToggle={() => setFiltersOpen((current) => !current)} onClose={() => setFiltersOpen(false)} onApply={applyFilters} onClear={clearFilters}>
+          <label className="filter-field">Cidade<select value={cityDraft} onChange={(event) => setCityDraft(event.target.value)}><option value="">Todas as cidades</option>{filterCities.map((city) => <option value={city} key={city}>{city}</option>)}</select></label>
+          <label className="filter-field">Estado<select value={stateDraft} onChange={(event) => setStateDraft(event.target.value)}><option value="">Todos os estados</option>{filterStates.map((state) => <option value={state} key={state}>{state}</option>)}</select></label>
+        </FilterMenu>
+      </section>
+    {loading ? <LoadingState label="Carregando fornecedores..." /> : error ? <ErrorState description={error} onRetry={() => void loadSuppliers()} /> : suppliers.length === 0 ? <div className="data-card"><EmptyState title={hasAppliedFilters ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Nenhum fornecedor cadastrado ainda'} description={hasAppliedFilters ? 'Tente ajustar a pesquisa ou limpar os filtros.' : 'Crie o primeiro fornecedor para relacionar seus produtos.'} /></div> : <div className="data-card data-table-wrap"><table className="data-table"><thead><tr><th>Fornecedor</th><th>CNPJ</th><th>Localização</th><th><span className="sr-only">Ações</span></th></tr></thead><tbody>{suppliers.map((supplier) => <tr key={supplier.id}><td className="data-primary">{supplier.nome}<span className="data-secondary">ID {supplier.id}</span></td><td>{supplier.cnpj}</td><td>{supplier.cidade} / {supplier.estado}</td><td><div className="table-actions"><button className="table-action" type="button" onClick={() => void openSupplierDetails(supplier)}>Ver</button><button className="table-action" type="button" onClick={() => { setSelected(supplier); setModal('edit') }}>Editar</button><button className="table-action table-action-danger" type="button" onClick={() => setDeleteTarget(supplier)}>Excluir</button></div></td></tr>)}</tbody></table></div>}
     {modal === 'view' && selected ? <Modal title="Detalhes do fornecedor" size="large" onClose={() => { setModal(null); setSelectedDetails(null) }}>{detailsLoading ? <LoadingState label="Carregando detalhes do fornecedor..." /> : detailsError ? <ErrorState description={detailsError} onRetry={() => void openSupplierDetails(selected)} /> : selectedDetails ? <SupplierDetails supplier={selectedDetails} /> : null}</Modal> : null}
     {(modal === 'create' || modal === 'edit') ? <Modal title={modal === 'edit' ? 'Editar fornecedor' : 'Novo fornecedor'} description="O CNPJ é obrigatório e deve ser único." onClose={() => setModal(null)}><SupplierForm initialValue={formValue} saving={saving} onCancel={() => setModal(null)} onSave={(payload) => void saveSupplier(payload)} /></Modal> : null}
     {deleteTarget ? <ConfirmDialog title="Excluir fornecedor?" description={`O cadastro de ${deleteTarget.nome} será removido. Produtos relacionados impedem a exclusão.`} busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={() => void removeSupplier()} /> : null}

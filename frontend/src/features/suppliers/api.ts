@@ -1,8 +1,22 @@
 import { request, requestJson } from '../../services/httpClient'
 import type { Supplier, SupplierDetails, SupplierPayload } from './types'
 
-export function listSuppliers(): Promise<Supplier[]> {
-  return request<Supplier[]>('/api/suppliers')
+export type SupplierListFilters = {
+  search?: string
+  city?: string
+  state?: string
+}
+
+export function listSuppliers(filters: SupplierListFilters = {}): Promise<Supplier[]> {
+  const params = new URLSearchParams()
+  const search = filters.search?.trim()
+  const city = filters.city?.trim()
+  const state = filters.state?.trim()
+  if (search) params.set('search', search)
+  if (city) params.set('city', city)
+  if (state) params.set('state', state)
+  const query = params.toString()
+  return request<Supplier[]>(`/api/suppliers${query ? `?${query}` : ''}`)
 }
 
 export function getSupplier(id: number): Promise<SupplierDetails> {
