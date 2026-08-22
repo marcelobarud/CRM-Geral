@@ -27,14 +27,18 @@ testes. A Fase 14 foi implementada para melhorar a listagem e o detalhamento
 de Vendas: a listagem prioriza Produto, Valor Total, Cliente e Funcionário;
 vendas com múltiplos itens exibem a contagem de produtos; e o detalhe
 apresenta preço, subtotal e fornecedor histórico. A validação PostgreSQL da
-Fase 14 foi confirmada pelo usuário com `63 passed`. A Fase 15 foi implementada
-parcialmente no código, com validação local concluída; a validação PostgreSQL
-real e a revisão manual responsiva ainda dependem do ambiente externo. A Fase
-16 foi concluída com infraestrutura implementada e um piloto na tela de
+Fase 14 foi confirmada pelo usuário com `63 passed`. A Fase 15 foi concluída
+com detalhes relacionais derivados para Clientes e Fornecedores, sem
+persistência duplicada. A Fase 16 foi concluída com infraestrutura implementada
+e um piloto na tela de
 Funcionários, incluindo busca textual no backend, filtro de ativos, combinação
 AND, limpar filtros e estados de loading, erro e zero resultados. A validação
-PostgreSQL real da Fase 16 foi confirmada pelo usuário. A Fase 17 não foi
-iniciada.
+PostgreSQL real da Fase 16 foi confirmada pelo usuário. A Fase 17 foi concluída
+com busca global backend-driven e filtros detalhados nas cinco telas
+operacionais. A Fase 18 concluiu a auditoria e estabilização das Fases 11 a 17,
+com validação estática, frontend, UI responsiva, OpenAPI, segurança e
+PostgreSQL real. A execução PostgreSQL final foi realizada externamente e
+confirmada como aprovada pelo usuário em 2026-08-22.
 
 Princípio central: privilegiar simplicidade sobre abrangência. Não tratar
 CRM genérico como autorização para construir uma plataforma completa.
@@ -522,8 +526,13 @@ decisões arquiteturais registradas aqui.
   integridade referencial, serviço e testes.
 - [x] Fase 14 concluída: listagem e detalhamento de Vendas com valores
   históricos, fornecedor histórico e validação PostgreSQL (`63 passed`).
+- [x] Fase 15 concluída: detalhes relacionais derivados de Clientes e
+  Fornecedores, com validação funcional e responsiva.
 - [x] Fase 16 concluída: infraestrutura de filtros, piloto de Funcionários e
   validação PostgreSQL real confirmada pelo usuário.
+- [x] Fase 17 concluída: busca global e filtros detalhados por módulo.
+- [x] Fase 18 concluída: auditoria, correções de regressão, validação final e
+  documentação atualizada; PostgreSQL real aprovado externamente pelo usuário.
 - [ ] Funcionalidades fora da V1 permanecem no backlog futuro.
 
 ## 13. Comandos
@@ -541,7 +550,7 @@ apontando para um banco dedicado com sufixo `_test`.
 
 ## 14. Última atualização
 
-Data: 2026-08-21
+Data: 2026-08-22
 
 - Ambiguidades do modelo resolvidas: categoria, funcionário responsável,
   histórico de preço, totais, exclusões e tipos mínimos de dados.
@@ -587,11 +596,9 @@ Data: 2026-08-21
 - O detalhe de Fornecedor usa `selectinload(Fornecedor.produtos)` para evitar
   N+1; o detalhe de Cliente usa uma query `GROUP BY`/`SUM`, sem cascata N+1.
 - A implementação local da Fase 15 passou Ruff, backend `27 passed, 38 skipped,
-  1 warning`, frontend lint, typecheck, `38 passed` e build. Os skips ocorreram
-  porque `TEST_DATABASE_URL` não estava definida neste processo; a validação
-  manual responsiva também permanece pendente.
-- A Fase 15 ainda não está formalmente concluída até a validação PostgreSQL real
-  e a revisão manual.
+  1 warning`, frontend lint, typecheck, `38 passed` e build naquele checkpoint.
+  A validação final posterior confirmou os detalhes relacionais em desktop,
+  notebook e mobile; a Fase 15 está concluída.
 - A Fase 16 foi implementada como infraestrutura mínima e reutilizável: o
   `SearchInput` é compartilhado, enquanto o piloto de Funcionários mantém
   estado de edição e estado aplicado para busca e `ativo`, com aplicação
@@ -609,3 +616,21 @@ Data: 2026-08-21
   confirmou busca, combinação com ativos, limpeza, zero resultados e o layout
   em 1440×900, 1024×768 e 390×844. A validação PostgreSQL real foi concluída
   e confirmada pelo usuário.
+- A Fase 17 aplicou o padrão de busca e filtros a Clientes, Produtos,
+  Funcionários, Fornecedores e Vendas. A busca usa debounce de 300 ms; filtros
+  detalhados ficam em painel suspenso, usam opções reais quando aplicável e
+  preservam combinação AND e aplicação explícita.
+- A Fase 18 corrigiu três regressões confirmadas: ordem de imports da migration
+  da Fase 12, acionamento duplicado ao limpar o `SearchInput` e contribuição das
+  tabelas para a rolagem horizontal da página no mobile.
+- Validação final da Fase 18: Ruff, lint, typecheck e build aprovados; frontend
+  com `58 passed`; suíte backend atual com `71 tests collected`; UI aprovada em
+  `1440 × 900`, `1024 × 768` e `390 × 844`; console sem erros; OpenAPI e
+  auditoria de secrets aprovados. A execução PostgreSQL real foi realizada
+  externamente e confirmada como aprovada pelo usuário; a contagem e os warnings
+  dessa execução externa não foram transcritos nesta atualização.
+- A cadeia Alembic permanece linear e com head único `20260820_0002`:
+  `20260818_0001 → 20260820_0001 → 20260820_0002`.
+- Warnings conhecidos de Starlette/httpx e de teardown transacional permanecem
+  como dívida técnica não bloqueante; dependências não foram atualizadas apenas
+  para removê-los.

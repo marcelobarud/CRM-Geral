@@ -48,4 +48,22 @@ describe('SearchInput', () => {
     expect((input as HTMLInputElement).value).toBe('')
     expect(onSearch).toHaveBeenCalledWith('')
   })
+
+  it('uses the explicit clear callback without also calling onChange', () => {
+    const onChange = vi.fn()
+    const onClear = vi.fn()
+
+    render(
+      <SearchInput
+        value="Fornecedor"
+        onChange={onChange}
+        onClear={onClear}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar pesquisa' }))
+
+    expect(onClear).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled()
+  })
 })

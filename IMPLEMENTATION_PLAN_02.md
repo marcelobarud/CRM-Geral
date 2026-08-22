@@ -740,8 +740,8 @@ Nunca reconstruir venda histórica usando `produtos.preco_venda`.
 
 # 8. Fase 15 — Detalhes relacionais de Clientes e Fornecedores
 
-**Status atual:** implementação realizada; validação PostgreSQL real e revisão
-manual responsiva pendentes.
+**Status atual:** concluída. Implementação, relacionamentos derivados, estados
+vazios e responsividade foram revalidados na Fase 18.
 
 ## Objetivo
 
@@ -864,17 +864,16 @@ Para uma visão consolidada de produtos comprados, não inventar um “preço at
 
 `feat: adiciona detalhes relacionais de clientes e fornecedores`
 
-## Validação da implementação atual
+## Validação final
 
-- Backend: Ruff passou; `27 passed, 38 skipped, 1 warning` localmente. Os skips
-  são os testes PostgreSQL porque `TEST_DATABASE_URL` não está definida neste
-  processo.
-- Frontend: lint, typecheck, `38 passed` e build passaram.
-- PostgreSQL real: ainda não executado neste ambiente. Deve ser executado duas
-  vezes com `TEST_DATABASE_URL` externo apontando para `crm_geral_test`.
-- Validação manual responsiva: pendente, pois o navegador local não ficou
-  disponível para inspeção nesta execução.
-- Fase 15 não deve ser marcada como concluída antes dessas duas validações.
+- Os checkpoints locais anteriores permaneceram preservados como histórico.
+- A Fase 18 revalidou detalhes com e sem relações, consolidação por
+  `produto_id`, quantidade Decimal, eager loading e ausência de persistência
+  duplicada.
+- A revisão manual confirmou os detalhes em desktop, notebook e mobile.
+- A validação PostgreSQL final foi executada externamente e confirmada como
+  aprovada pelo usuário em 2026-08-22.
+- Fase 15 concluída.
 
 ---
 
@@ -998,7 +997,8 @@ Não introduzir nova biblioteca pesada apenas para isso.
   de testes configurado externamente. Não foram usadas credenciais de
   `.env.example`.
 
-A Fase 16 está concluída. A Fase 17 permanece pendente e não iniciada.
+A Fase 16 está concluída. As Fases 17 e 18 também foram concluídas e estão
+registradas nas seções seguintes.
 
 ## Critérios de conclusão
 
@@ -1017,6 +1017,9 @@ A Fase 16 está concluída. A Fase 17 permanece pendente e não iniciada.
 ---
 
 # 10. Fase 17 — Filtros por módulo
+
+**Status atual:** concluída. Busca global e filtros detalhados foram aplicados
+às cinco telas operacionais e estabilizados na Fase 18.
 
 ## Objetivo
 
@@ -1163,6 +1166,23 @@ Por módulo:
 - regressão da paginação, se existir;
 - mobile.
 
+## Validação final
+
+- Clientes: busca, Cidade e Estado.
+- Produtos: busca, Categoria, Fornecedor e intervalos Decimal de custo e venda.
+- Funcionários: busca, Cidade, Estado e status Todos/Ativos/Inativos.
+- Fornecedores: busca, Cidade e Estado.
+- Vendas: busca, Produto, Cliente, Funcionário, período e Valor Total.
+- Busca backend-driven com trim, vazio tratado como ausência e debounce de
+  `300 ms` no frontend.
+- Filtros detalhados combinados com AND, aplicação explícita, limpeza, estados
+  vazios e zero resultados revalidados.
+- Painéis utilizam opções reais, indicação de filtros ativos e fechamento por
+  toggle, clique externo e Escape.
+- Layout aprovado em `1440 × 900`, `1024 × 768` e `390 × 844`, sem rolagem
+  horizontal da página.
+- Fase 17 concluída sem adicionar migration ou filtro fora do escopo aprovado.
+
 ## Checkpoint sugerido
 
 `feat: adiciona filtros às telas operacionais`
@@ -1170,6 +1190,8 @@ Por módulo:
 ---
 
 # 11. Fase 18 — Validação e estabilização do IMPLEMENTATION_PLAN_02
+
+**Status atual:** concluída em 2026-08-22.
 
 ## Objetivo
 
@@ -1283,6 +1305,34 @@ Atualizar:
 - nenhuma regressão relevante;
 - documentação alinhada ao código;
 - nenhum recurso futuro introduzido sem decisão explícita.
+
+## Resultado final
+
+- Ruff: aprovado, sem erros.
+- Backend: `71 tests collected`; a execução PostgreSQL real foi realizada
+  externamente e confirmada como aprovada pelo usuário. A contagem e os warnings
+  do relatório externo não foram fornecidos nesta atualização.
+- Frontend: lint e typecheck aprovados; `58 passed`; build Vite concluído.
+- Alembic: cadeia linear
+  `20260818_0001 → 20260820_0001 → 20260820_0002`, com head único
+  `20260820_0002`; validação externa no banco de teste confirmada pelo usuário.
+- UI manual: Dashboard, cadastros, Nova Venda, Vendas, detalhes, modais e filtros
+  aprovados em `1440 × 900`, `1024 × 768` e `390 × 844`.
+- Nova Venda: um e três itens, quantidade fracionária, preços, subtotais, total,
+  Remover e ausência de overflow revalidados sem persistir dados de
+  demonstração adicionais.
+- Filtros: opções reais, aplicação, limpeza, indicador ativo, debounce e zero
+  resultados validados nas cinco telas.
+- Console: nenhum erro ou warning novo da aplicação durante os fluxos manuais.
+- Segurança: nenhum `.env` real, certificado, dump ou secret de alta confiança
+  encontrado no Git; exemplos permanecem apenas com placeholders.
+- Regressões corrigidas: import da migration para Ruff, callback duplicado no
+  limpar do `SearchInput` e overflow horizontal da página causado pela área
+  rolável das tabelas no mobile.
+- Dívida técnica não bloqueante: warnings conhecidos de Starlette/httpx e de
+  teardown transacional; nenhuma atualização ampla de dependências foi feita.
+- Nenhuma funcionalidade fora das Fases 11 a 18 foi adicionada.
+- Fase 18 concluída; não foi criada Fase 19.
 
 ## Checkpoint sugerido
 
@@ -1452,9 +1502,10 @@ IMPLEMENTATION_PLAN_02.md
 → Fase 12 concluída
 → Fase 13 concluída
 → Fase 14 concluída; PostgreSQL validado com `63 passed`
-→ Fase 15 implementada; validação PostgreSQL/manual pendente
+→ Fase 15 concluída; detalhes relacionais validados
 → Fase 16 concluída; piloto em Funcionários e PostgreSQL validados
-→ Fases 17 e 18 pendentes e não iniciadas
+→ Fase 17 concluída; filtros por módulo validados
+→ Fase 18 concluída; evolução auditada e estabilizada
 ```
 
 Fases previstas:

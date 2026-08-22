@@ -687,6 +687,8 @@
 }
 
 .data-table-wrap {
+  max-width: 100%;
+  contain: paint;
   overflow-x: auto;
 }
 

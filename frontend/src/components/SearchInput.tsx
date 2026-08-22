@@ -50,7 +50,13 @@ export function SearchInput({
             className="search-input-clear"
             type="button"
             aria-label="Limpar pesquisa"
-            onClick={() => onClear?.() ?? onChange('')}
+            onClick={() => {
+              if (onClear) {
+                onClear()
+                return
+              }
+              onChange('')
+            }}
             disabled={disabled}
           >
             ×
