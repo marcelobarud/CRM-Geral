@@ -65,3 +65,11 @@ def test_openapi_lists_sales_routes_and_sale_request_contract() -> None:
         "items"
     ]["$ref"]
     assert supplier_product_ref.endswith("/FornecedorProdutoRead")
+
+    employee_parameters = response.json()["paths"]["/api/employees"]["get"][
+        "parameters"
+    ]
+    assert {parameter["name"] for parameter in employee_parameters} >= {
+        "active",
+        "search",
+    }

@@ -1,6 +1,7 @@
 .app-frame {
   display: flex;
   min-height: 100vh;
+  overflow-x: hidden;
   background: #eef4f8;
 }
 
@@ -941,6 +942,90 @@
   overflow-wrap: anywhere;
 }
 
+.filter-toolbar {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) auto auto;
+  align-items: end;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+.search-input {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.search-input label,
+.filter-checkbox {
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.search-input-control {
+  position: relative;
+}
+
+.search-input input {
+  width: 100%;
+  min-height: 2.7rem;
+  padding: 0.65rem 2.5rem 0.65rem 0.75rem;
+  border: 1px solid #cfdde5;
+  border-radius: 0.7rem;
+  outline: 0;
+  color: var(--ink);
+  background: #fcfeff;
+  font-size: 0.85rem;
+}
+
+.search-input input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 0.2rem rgba(72, 122, 152, 0.14);
+}
+
+.search-input-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  width: 1.7rem;
+  height: 1.7rem;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 0.5rem;
+  color: var(--muted);
+  background: transparent;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.search-input-clear:hover {
+  color: var(--blue-deep);
+  background: var(--blue-soft);
+}
+
+.filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.7rem;
+  white-space: nowrap;
+}
+
+.filter-checkbox input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--blue);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
 .relational-detail-section {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
@@ -1431,6 +1516,11 @@
 }
 
 @media (max-width: 900px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
   .sidebar {
     position: fixed;
     left: 0;
@@ -1538,6 +1628,18 @@
   }
 
   .crud-page-header .button {
+    width: 100%;
+  }
+
+  .filter-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-actions {
+    flex-direction: column;
+  }
+
+  .filter-actions .button {
     width: 100%;
   }
 

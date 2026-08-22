@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -29,11 +29,23 @@ def ensure_unique_cpf(
 @router.get("", response_model=list[FuncionarioRead])
 def list_employees(
     active: bool | None = Query(default=None),
+    search: str | None = Query(default=None),
     db: Session = Depends(get_db_session),
 ) -> list[Funcionario]:
     query = select(Funcionario)
     if active is not None:
         query = query.where(Funcionario.ativo == active)
+    normalized_search = search.strip() if search else ""
+    if normalized_search:
+        search_pattern = f"%{normalized_search}%"
+        query = query.where(
+            or_(
+                Funcionario.nome_completo.ilike(search_pattern),
+                Funcionario.cpf.ilike(search_pattern),
+                Funcionario.cidade.ilike(search_pattern),
+                Funcionario.estado.ilike(search_pattern),
+            )
+        )
     return list(db.scalars(query.order_by(Funcionario.id)).all())
 
 

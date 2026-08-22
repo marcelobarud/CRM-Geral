@@ -184,6 +184,15 @@ describe('employees API', () => {
     )
   })
 
+  it('encodes the pilot search together with the existing active filter', async () => {
+    const fetchMock = mockFetch(response([employee]))
+    await expect(listEmployees(true, '  Ana  ')).resolves.toEqual([employee])
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/api/employees?active=true&search=Ana',
+      expect.objectContaining({ headers: expect.objectContaining({ Accept: 'application/json' }) }),
+    )
+  })
+
   it('exposes duplicate CPF errors without replacing them with a generic message', async () => {
     mockFetch(response({ detail: 'CPF já cadastrado.' }, 409))
     await expect(createEmployee(employeePayload)).rejects.toMatchObject({ message: 'CPF já cadastrado.' })

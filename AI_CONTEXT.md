@@ -30,7 +30,11 @@ apresenta preço, subtotal e fornecedor histórico. A validação PostgreSQL da
 Fase 14 foi confirmada pelo usuário com `63 passed`. A Fase 15 foi implementada
 parcialmente no código, com validação local concluída; a validação PostgreSQL
 real e a revisão manual responsiva ainda dependem do ambiente externo. A Fase
-16 não foi iniciada.
+16 foi concluída com infraestrutura implementada e um piloto na tela de
+Funcionários, incluindo busca textual no backend, filtro de ativos, combinação
+AND, limpar filtros e estados de loading, erro e zero resultados. A validação
+PostgreSQL real da Fase 16 foi confirmada pelo usuário. A Fase 17 não foi
+iniciada.
 
 Princípio central: privilegiar simplicidade sobre abrangência. Não tratar
 CRM genérico como autorização para construir uma plataforma completa.
@@ -518,6 +522,8 @@ decisões arquiteturais registradas aqui.
   integridade referencial, serviço e testes.
 - [x] Fase 14 concluída: listagem e detalhamento de Vendas com valores
   históricos, fornecedor histórico e validação PostgreSQL (`63 passed`).
+- [x] Fase 16 concluída: infraestrutura de filtros, piloto de Funcionários e
+  validação PostgreSQL real confirmada pelo usuário.
 - [ ] Funcionalidades fora da V1 permanecem no backlog futuro.
 
 ## 13. Comandos
@@ -535,7 +541,7 @@ apontando para um banco dedicado com sufixo `_test`.
 
 ## 14. Última atualização
 
-Data: 2026-08-20
+Data: 2026-08-21
 
 - Ambiguidades do modelo resolvidas: categoria, funcionário responsável,
   histórico de preço, totais, exclusões e tipos mínimos de dados.
@@ -585,4 +591,21 @@ Data: 2026-08-20
   porque `TEST_DATABASE_URL` não estava definida neste processo; a validação
   manual responsiva também permanece pendente.
 - A Fase 15 ainda não está formalmente concluída até a validação PostgreSQL real
-  e a revisão manual. A Fase 16 não foi iniciada.
+  e a revisão manual.
+- A Fase 16 foi implementada como infraestrutura mínima e reutilizável: o
+  `SearchInput` é compartilhado, enquanto o piloto de Funcionários mantém
+  estado de edição e estado aplicado para busca e `ativo`, com aplicação
+  explícita e limpeza dos filtros.
+- O endpoint `GET /api/employees` aceita `search` e `active`; `search` é
+  normalizado por trim e aplicado apenas aos campos visíveis da listagem
+  (`nome_completo`, `cpf`, `cidade` e `estado`). Os parâmetros são combinados
+  com AND e enviados por query string HTTP, sem introduzir estado na URL da
+  aplicação.
+- A Fase 16 não adicionou filtros relacionais invisíveis, engine universal,
+  migration ou funcionalidade de módulos posteriores. A validação local passou
+  com Ruff, backend `27 passed, 39 skipped, 1 warning`, frontend lint,
+  typecheck, `44 passed` e build; os skips ocorreram porque
+  `TEST_DATABASE_URL` não estava definida neste processo. A revisão manual
+  confirmou busca, combinação com ativos, limpeza, zero resultados e o layout
+  em 1440×900, 1024×768 e 390×844. A validação PostgreSQL real foi concluída
+  e confirmada pelo usuário.

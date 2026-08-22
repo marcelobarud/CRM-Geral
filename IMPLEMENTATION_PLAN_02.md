@@ -880,6 +880,9 @@ Para uma visão consolidada de produtos comprados, não inventar um “preço at
 
 # 9. Fase 16 — Infraestrutura de filtros
 
+**Status atual:** concluída, com infraestrutura implementada, piloto em
+Funcionários e validação PostgreSQL real confirmada pelo usuário.
+
 ## Objetivo
 
 Criar um padrão consistente para filtros globais e detalhados antes de aplicá-los a todas as telas.
@@ -961,6 +964,41 @@ Quando apropriado, filtros podem ser representados por query string para permiti
 Isso deve ser adotado apenas se for simples dentro do sistema de roteamento atual.
 
 Não introduzir nova biblioteca pesada apenas para isso.
+
+## 9.5. Implementação atual
+
+- `SearchInput` foi criado como componente compartilhado simples, com label
+  acessível, input controlado e limpeza explícita.
+- Funcionários é o único piloto: a tela combina busca textual e `Somente
+  ativos` por meio de um botão `Aplicar filtros`, preservando separação entre
+  valores editados e filtros aplicados.
+- A busca é normalizada com `trim`; valor vazio ou apenas espaços equivale à
+  ausência do parâmetro. A combinação de `search` e `active` usa AND no
+  backend.
+- O backend filtra apenas campos textuais visíveis na própria listagem de
+  Funcionários: nome, CPF, cidade e estado. Não foram adicionados filtros
+  relacionais invisíveis, engine universal, estado de filtros na URL ou
+  debounce obrigatório.
+- Estados de loading, erro recuperável, lista vazia e zero resultados foram
+  preservados. O layout do toolbar se adapta a desktop, notebook e mobile;
+  tabelas continuam usando seu wrapper de rolagem interna sem criar rolagem
+  horizontal da página.
+
+## 9.6. Validação atual
+
+- Ruff: aprovado.
+- Backend local: `27 passed, 39 skipped, 1 warning`; os skips são testes
+  PostgreSQL sem `TEST_DATABASE_URL` neste processo.
+- Frontend: lint, typecheck, `44 passed` e build aprovados.
+- Validação manual: busca com texto normalizado, combinação com ativos,
+  limpeza, zero resultados e layout verificados em `1440×900`, `1024×768` e
+  `390×844`; o menu móvel também foi confirmado. O retry de erro foi coberto
+  pelo teste do piloto.
+- PostgreSQL real: validado pelo usuário após a execução da suíte com o banco
+  de testes configurado externamente. Não foram usadas credenciais de
+  `.env.example`.
+
+A Fase 16 está concluída. A Fase 17 permanece pendente e não iniciada.
 
 ## Critérios de conclusão
 
@@ -1415,7 +1453,8 @@ IMPLEMENTATION_PLAN_02.md
 → Fase 13 concluída
 → Fase 14 concluída; PostgreSQL validado com `63 passed`
 → Fase 15 implementada; validação PostgreSQL/manual pendente
-→ Fases 16 a 18 pendentes e não iniciadas
+→ Fase 16 concluída; piloto em Funcionários e PostgreSQL validados
+→ Fases 17 e 18 pendentes e não iniciadas
 ```
 
 Fases previstas:

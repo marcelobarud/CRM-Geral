@@ -324,6 +324,50 @@ def test_employee_crud_duplicate_cpf_optional_fields_and_referenced_delete(
     assert delete_response.status_code == 409
 
 
+def test_employee_list_search_normalizes_text_and_combines_with_active_filter(
+    client: TestClient,
+    session,
+) -> None:
+    first_employee = Funcionario(**employee_payload())
+    second_employee = Funcionario(
+        **{
+            **employee_payload(),
+            "nome_completo": "Ana Souza",
+            "cidade": "Campinas",
+            "cpf": "987.654.321-00",
+            "ativo": False,
+        },
+    )
+    session.add_all([first_employee, second_employee])
+    session.flush()
+
+    all_employees = client.get("/api/employees")
+    assert all_employees.status_code == 200
+    assert {item["id"] for item in all_employees.json()} == {
+        first_employee.id,
+        second_employee.id,
+    }
+
+    trimmed_search = client.get("/api/employees?search=%20%20Ana%20%20")
+    assert trimmed_search.status_code == 200
+    assert [item["id"] for item in trimmed_search.json()] == [second_employee.id]
+
+    combined = client.get("/api/employees?search=ana&active=true")
+    assert combined.status_code == 200
+    assert combined.json() == []
+
+    inactive_only = client.get("/api/employees?search=ana&active=false")
+    assert inactive_only.status_code == 200
+    assert [item["id"] for item in inactive_only.json()] == [second_employee.id]
+
+    blank_search = client.get("/api/employees?search=%20%20")
+    assert blank_search.status_code == 200
+    assert {item["id"] for item in blank_search.json()} == {
+        first_employee.id,
+        second_employee.id,
+    }
+
+
 def test_employee_status_filters_new_sales_and_preserves_history(
     client: TestClient,
     session,

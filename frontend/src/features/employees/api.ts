@@ -1,8 +1,13 @@
 import { request, requestJson } from '../../services/httpClient'
 import type { Employee, EmployeePayload } from './types'
 
-export function listEmployees(activeOnly = false): Promise<Employee[]> {
-  return request<Employee[]>(activeOnly ? '/api/employees?active=true' : '/api/employees')
+export function listEmployees(activeOnly = false, search = ''): Promise<Employee[]> {
+  const params = new URLSearchParams()
+  if (activeOnly) params.set('active', 'true')
+  const normalizedSearch = search.trim()
+  if (normalizedSearch) params.set('search', normalizedSearch)
+  const query = params.toString()
+  return request<Employee[]>(`/api/employees${query ? `?${query}` : ''}`)
 }
 
 export function getEmployee(id: number): Promise<Employee> {
