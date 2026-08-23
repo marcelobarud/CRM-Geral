@@ -106,3 +106,32 @@ def test_custom_fields_are_isolated_typed_and_validated(client: TestClient) -> N
         )["valor"]
         == 42
     )
+
+
+def test_custom_field_routes_are_registered_for_all_modules(client: TestClient) -> None:
+    modules = {
+        "customers": "Campo Cliente",
+        "products": "Campo Produto",
+        "employees": "Campo Funcionário",
+        "suppliers": "Campo Fornecedor",
+    }
+
+    for module, name in modules.items():
+        response = client.post(
+            f"/api/settings/custom-fields/{module}",
+            json={"nome": name, "tipo": "text"},
+        )
+        assert response.status_code == 201
+        assert response.json()["nome"] == name
+
+
+def test_custom_field_invalid_definition_returns_validation_error(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/settings/custom-fields/customers",
+        json={"nome": "Opções inválidas", "tipo": "text", "opcoes": ["A"]},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Dados de entrada inválidos."

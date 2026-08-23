@@ -42,6 +42,11 @@ def test_appearance_can_be_read_updated_and_restored(client: TestClient) -> None
     assert restored_response.json()["nome_sistema"] == "CRM Geral"
     assert restored_response.json()["cor_primaria"] == "#487A98"
 
+    read_after_restore = client.get("/api/settings/appearance")
+    assert read_after_restore.status_code == 200
+    assert read_after_restore.json()["nome_sistema"] == "CRM Geral"
+    assert read_after_restore.json()["rotulo_clientes"] == "Clientes"
+
 
 def test_appearance_rejects_unsafe_values_and_unknown_fields(
     client: TestClient,
