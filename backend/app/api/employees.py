@@ -10,6 +10,12 @@ from app.schemas.employees import (
     FuncionarioRead,
     FuncionarioUpdate,
 )
+from app.services.custom_fields import (
+    CUSTOM_FIELD_DOMAINS,
+    CustomFieldValidationError,
+    apply_values,
+    read_values,
+)
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -65,7 +71,14 @@ def get_employee(
     employee = db.get(Funcionario, employee_id)
     if employee is None:
         raise HTTPException(status_code=404, detail="Funcionário não encontrado.")
-    return employee
+    return FuncionarioRead(
+        **FuncionarioRead.model_validate(employee).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["employees"], employee.id
+        ),
+    )
 
 
 @router.post("", response_model=FuncionarioRead, status_code=status.HTTP_201_CREATED)
@@ -74,15 +87,28 @@ def create_employee(
     db: Session = Depends(get_db_session),
 ) -> Funcionario:
     ensure_unique_cpf(db, payload.cpf)
-    employee = Funcionario(**payload.model_dump())
+    custom_values = payload.campos_personalizados
+    employee = Funcionario(**payload.model_dump(exclude={"campos_personalizados"}))
     db.add(employee)
     try:
+        db.flush()
+        apply_values(db, CUSTOM_FIELD_DOMAINS["employees"], employee.id, custom_values)
         db.commit()
+    except CustomFieldValidationError as exception:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exception)) from None
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="CPF já cadastrado.") from None
     db.refresh(employee)
-    return employee
+    return FuncionarioRead(
+        **FuncionarioRead.model_validate(employee).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["employees"], employee.id
+        ),
+    )
 
 
 @router.patch("/{employee_id}", response_model=FuncionarioRead)
@@ -96,17 +122,35 @@ def update_employee(
         raise HTTPException(status_code=404, detail="Funcionário não encontrado.")
 
     updates = payload.model_dump(exclude_unset=True)
+    custom_values = updates.pop("campos_personalizados", None)
     if "cpf" in updates:
         ensure_unique_cpf(db, updates["cpf"], employee_id)
     for field_name, value in updates.items():
         setattr(employee, field_name, value)
     try:
+        db.flush()
+        apply_values(
+            db,
+            CUSTOM_FIELD_DOMAINS["employees"],
+            employee.id,
+            custom_values or {},
+        )
         db.commit()
+    except CustomFieldValidationError as exception:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exception)) from None
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="CPF já cadastrado.") from None
     db.refresh(employee)
-    return employee
+    return FuncionarioRead(
+        **FuncionarioRead.model_validate(employee).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["employees"], employee.id
+        ),
+    )
 
 
 @router.delete("/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -117,9 +161,10 @@ def delete_employee(
     employee = db.get(Funcionario, employee_id)
     if employee is None:
         raise HTTPException(status_code=404, detail="Funcionário não encontrado.")
-    if db.scalar(
-        select(Venda.id).where(Venda.funcionario_id == employee_id)
-    ) is not None:
+    if (
+        db.scalar(select(Venda.id).where(Venda.funcionario_id == employee_id))
+        is not None
+    ):
         raise HTTPException(
             status_code=409,
             detail="Funcionário possui vendas relacionadas e não pode ser excluído.",

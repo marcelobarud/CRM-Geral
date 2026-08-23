@@ -8,6 +8,12 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db_session
 from app.models import Fornecedor, Produto, VendaItem
 from app.schemas.products import ProdutoCreate, ProdutoRead, ProdutoUpdate
+from app.services.custom_fields import (
+    CUSTOM_FIELD_DOMAINS,
+    CustomFieldValidationError,
+    apply_values,
+    read_values,
+)
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
@@ -75,7 +81,14 @@ def get_product(product_id: int, db: Session = Depends(get_db_session)) -> Produ
     product = db.get(Produto, product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
-    return product
+    return ProdutoRead(
+        **ProdutoRead.model_validate(product).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["products"], product.id
+        ),
+    )
 
 
 @router.post("", response_model=ProdutoRead, status_code=status.HTTP_201_CREATED)
@@ -84,10 +97,16 @@ def create_product(
     db: Session = Depends(get_db_session),
 ) -> Produto:
     ensure_supplier_exists(db, payload.fornecedor_id)
-    product = Produto(**payload.model_dump())
+    custom_values = payload.campos_personalizados
+    product = Produto(**payload.model_dump(exclude={"campos_personalizados"}))
     db.add(product)
     try:
+        db.flush()
+        apply_values(db, CUSTOM_FIELD_DOMAINS["products"], product.id, custom_values)
         db.commit()
+    except CustomFieldValidationError as exception:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exception)) from None
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -95,7 +114,14 @@ def create_product(
             detail="Não foi possível criar o produto por conflito de integridade.",
         ) from None
     db.refresh(product)
-    return product
+    return ProdutoRead(
+        **ProdutoRead.model_validate(product).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["products"], product.id
+        ),
+    )
 
 
 @router.patch("/{product_id}", response_model=ProdutoRead)
@@ -109,12 +135,23 @@ def update_product(
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
 
     updates = payload.model_dump(exclude_unset=True)
+    custom_values = updates.pop("campos_personalizados", None)
     if "fornecedor_id" in updates:
         ensure_supplier_exists(db, updates["fornecedor_id"])
     for field_name, value in updates.items():
         setattr(product, field_name, value)
     try:
+        db.flush()
+        apply_values(
+            db,
+            CUSTOM_FIELD_DOMAINS["products"],
+            product.id,
+            custom_values or {},
+        )
         db.commit()
+    except CustomFieldValidationError as exception:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exception)) from None
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -122,7 +159,14 @@ def update_product(
             detail="Não foi possível atualizar o produto por conflito de integridade.",
         ) from None
     db.refresh(product)
-    return product
+    return ProdutoRead(
+        **ProdutoRead.model_validate(product).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["products"], product.id
+        ),
+    )
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -130,9 +174,10 @@ def delete_product(product_id: int, db: Session = Depends(get_db_session)) -> Re
     product = db.get(Produto, product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Produto não encontrado.")
-    if db.scalar(
-        select(VendaItem.id).where(VendaItem.produto_id == product_id)
-    ) is not None:
+    if (
+        db.scalar(select(VendaItem.id).where(VendaItem.produto_id == product_id))
+        is not None
+    ):
         raise HTTPException(
             status_code=409,
             detail=(

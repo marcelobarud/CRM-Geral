@@ -1,3 +1,5 @@
+import type { CustomFieldValue } from '../customFields/types'
+
 export type Customer = {
   id: number
   nome: string
@@ -6,6 +8,7 @@ export type Customer = {
   rua: string
   numero: string
   complemento: string | null
+  campos_personalizados?: CustomFieldValue[]
 }
 
 export type CustomerPurchasedProduct = {
@@ -18,4 +21,4 @@ export type CustomerDetails = Customer & {
   produtos_comprados: CustomerPurchasedProduct[]
 }
 
-export type CustomerPayload = Omit<Customer, 'id'>
+export type CustomerPayload = Omit<Customer, 'id' | 'campos_personalizados'> & { campos_personalizados?: Record<string, unknown> }

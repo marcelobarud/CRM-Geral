@@ -38,9 +38,8 @@ com busca global backend-driven e filtros detalhados nas cinco telas
 operacionais. A Fase 18 concluiu a auditoria e estabilização das Fases 11 a 17,
 com validação estática, frontend, UI responsiva, OpenAPI, segurança e
 PostgreSQL real. A execução PostgreSQL final foi realizada externamente e
-confirmada como aprovada pelo usuário em 2026-08-22. O Plano 03 está em
-execução: suas Fases 1 e 2 foram implementadas, validadas e registradas em
-commits locais separados; a Fase 3 ainda não foi iniciada.
+confirmada como aprovada pelo usuário em 2026-08-22. O Plano 03 foi concluído
+com três commits locais separados; o Plano 04 não foi iniciado.
 
 Princípio central: privilegiar simplicidade sobre abrangência. Não tratar
 CRM genérico como autorização para construir uma plataforma completa.
@@ -539,7 +538,8 @@ decisões arquiteturais registradas aqui.
   ou alteração de regras de negócio.
 - [x] Plano 03 — Fase 2: aparência, identidade, nomenclaturas, logo e prévia
   em tempo real implementadas e validadas.
-- [ ] Plano 03 — Fase 3: campos personalizados por cadastro.
+- [x] Plano 03 — Fase 3: campos personalizados isolados por cadastro,
+  validação tipada, formulários dinâmicos e detalhes concluídos.
 - [ ] Funcionalidades fora da V1 permanecem no backlog futuro.
 
 ## 13. Comandos
@@ -657,6 +657,24 @@ Data: 2026-08-23
   `74 passed, 16 warnings`; frontend passou lint, typecheck, `60 passed` e
   build. A checagem manual confirmou a tela em `1440 × 900`, `1024 × 768` e
   `390 × 844`, sem overflow.
+- O Plano 03 — Fase 3 adicionou estruturas independentes de definição e valor
+  para Clientes, Produtos, Funcionários e Fornecedores, sem `entity_type`
+  universal e sem colunas dinâmicas nas tabelas raiz. A migration
+  `20260823_0002` mantém a cadeia linear e cria oito tabelas específicas.
+- Os tipos suportados são texto, inteiro, decimal, data, booleano e select.
+  O backend valida cada tipo, opções permitidas, campos obrigatórios e
+  isolamento por módulo; valores ausentes não geram linhas vazias. Campos
+  desativados deixam de aparecer nos formulários, mas valores existentes são
+  preservados. Campos personalizados não foram adicionados a Vendas nem aos
+  filtros.
+- A área Configurações → Campos personalizados permite criar, editar, ordenar,
+  ativar e desativar definições por cadastro. Os formulários de criação/edição
+  renderizam campos ativos por tipo e os detalhes exibem apenas valores
+  preenchidos.
+- A validação da Fase 3 passou downgrade/upgrade no banco de testes, Ruff,
+  backend PostgreSQL com `75 passed, 17 warnings`, frontend lint, typecheck,
+  `62 passed` e build. A checagem responsiva confirmou a administração de
+  campos em `1440 × 900`, `1024 × 768` e `390 × 844`, sem overflow.
 - Warnings conhecidos de Starlette/httpx e de teardown transacional permanecem
   como dívida técnica não bloqueante; dependências não foram atualizadas apenas
   para removê-los.

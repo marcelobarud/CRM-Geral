@@ -11,6 +11,7 @@ import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
 import { SearchInput } from '../../components/SearchInput'
 import { getApiErrorMessage } from '../../services/httpClient'
+import { CustomFieldDetails, CustomFieldFields } from '../customFields/CustomFieldFields'
 import {
   createCustomer,
   deleteCustomer,
@@ -39,6 +40,7 @@ type CustomerFormProps = {
 
 function CustomerForm({ initialValue, saving, onCancel, onSave }: CustomerFormProps) {
   const [form, setForm] = useState({ ...initialValue, complemento: initialValue.complemento ?? '' })
+  const [customValues, setCustomValues] = useState<Record<string, unknown>>({})
 
   const updateField = (field: keyof CustomerPayload, value: string) => {
     setForm((current) => ({ ...current, [field]: value }))
@@ -46,7 +48,7 @@ function CustomerForm({ initialValue, saving, onCancel, onSave }: CustomerFormPr
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    onSave({ ...form, complemento: form.complemento.trim() || null })
+    onSave({ ...form, complemento: form.complemento.trim() || null, ...(Object.keys(customValues).length ? { campos_personalizados: customValues } : {}) })
   }
 
   return (
@@ -58,6 +60,7 @@ function CustomerForm({ initialValue, saving, onCancel, onSave }: CustomerFormPr
         <div className="form-field"><label htmlFor="customer-street">Rua</label><input id="customer-street" required value={form.rua} onChange={(event) => updateField('rua', event.target.value)} /></div>
         <div className="form-field"><label htmlFor="customer-number">Número</label><input id="customer-number" required value={form.numero} onChange={(event) => updateField('numero', event.target.value)} /></div>
         <div className="form-field form-grid-wide"><label htmlFor="customer-complement">Complemento (opcional)</label><input id="customer-complement" value={form.complemento ?? ''} onChange={(event) => updateField('complemento', event.target.value)} /></div>
+        <CustomFieldFields module="customers" values={customValues} onChange={(name, value) => setCustomValues((current) => ({ ...current, [name]: value }))} />
       </div>
       <div className="form-actions"><button className="button button-secondary" type="button" onClick={onCancel} disabled={saving}>Cancelar</button><button className="button button-primary" type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar cliente'}</button></div>
     </form>
@@ -73,7 +76,7 @@ function CustomerDetails({ customer }: { customer: CustomerDetails }) {
     <>
       <dl className="detail-grid">
         <div><dt>Nome</dt><dd>{customer.nome}</dd></div><div><dt>Cidade / Estado</dt><dd>{customer.cidade} / {customer.estado}</dd></div><div><dt>Rua</dt><dd>{customer.rua}</dd></div><div><dt>Número</dt><dd>{customer.numero}</dd></div><div className="form-grid-wide"><dt>Complemento</dt><dd>{customer.complemento || 'Não informado'}</dd></div>
-      </dl>
+      </dl><CustomFieldDetails values={customer.campos_personalizados} />
       <section className="relational-detail-section" aria-labelledby="customer-purchased-products-title">
         <div className="relational-detail-heading">
           <h3 id="customer-purchased-products-title">Produtos comprados</h3>
@@ -164,7 +167,7 @@ export function CustomersPage() {
   }
 
   const formValue: CustomerPayload = selected
-    ? (({ id: _id, ...payload }) => payload)(selected)
+    ? (({ id: _id, campos_personalizados: _custom, ...payload }) => payload)(selected)
     : emptyCustomer
 
   return (

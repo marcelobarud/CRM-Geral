@@ -12,6 +12,12 @@ from app.schemas.suppliers import (
     FornecedorRead,
     FornecedorUpdate,
 )
+from app.services.custom_fields import (
+    CUSTOM_FIELD_DOMAINS,
+    CustomFieldValidationError,
+    apply_values,
+    read_values,
+)
 
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
 
@@ -70,6 +76,14 @@ def get_supplier(
         raise HTTPException(status_code=404, detail="Fornecedor não encontrado.")
 
     supplier_read = FornecedorRead.model_validate(supplier)
+    supplier_read = FornecedorRead(
+        **FornecedorRead.model_validate(supplier).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["suppliers"], supplier.id
+        ),
+    )
     return FornecedorDetailRead(
         **supplier_read.model_dump(),
         produtos=[
@@ -85,15 +99,28 @@ def create_supplier(
     db: Session = Depends(get_db_session),
 ) -> Fornecedor:
     ensure_unique_cnpj(db, payload.cnpj)
-    supplier = Fornecedor(**payload.model_dump())
+    custom_values = payload.campos_personalizados
+    supplier = Fornecedor(**payload.model_dump(exclude={"campos_personalizados"}))
     db.add(supplier)
     try:
+        db.flush()
+        apply_values(db, CUSTOM_FIELD_DOMAINS["suppliers"], supplier.id, custom_values)
         db.commit()
+    except CustomFieldValidationError as exception:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exception)) from None
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="CNPJ já cadastrado.") from None
     db.refresh(supplier)
-    return supplier
+    return FornecedorRead(
+        **FornecedorRead.model_validate(supplier).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["suppliers"], supplier.id
+        ),
+    )
 
 
 @router.patch("/{supplier_id}", response_model=FornecedorRead)
@@ -107,17 +134,35 @@ def update_supplier(
         raise HTTPException(status_code=404, detail="Fornecedor não encontrado.")
 
     updates = payload.model_dump(exclude_unset=True)
+    custom_values = updates.pop("campos_personalizados", None)
     if "cnpj" in updates:
         ensure_unique_cnpj(db, updates["cnpj"], supplier_id)
     for field_name, value in updates.items():
         setattr(supplier, field_name, value)
     try:
+        db.flush()
+        apply_values(
+            db,
+            CUSTOM_FIELD_DOMAINS["suppliers"],
+            supplier.id,
+            custom_values or {},
+        )
         db.commit()
+    except CustomFieldValidationError as exception:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exception)) from None
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="CNPJ já cadastrado.") from None
     db.refresh(supplier)
-    return supplier
+    return FornecedorRead(
+        **FornecedorRead.model_validate(supplier).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["suppliers"], supplier.id
+        ),
+    )
 
 
 @router.delete("/{supplier_id}", status_code=status.HTTP_204_NO_CONTENT)

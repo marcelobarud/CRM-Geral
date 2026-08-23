@@ -3,6 +3,7 @@ from datetime import date
 from pydantic import Field, model_validator
 
 from app.schemas.base import APIModel, ReadModel
+from app.schemas.custom_fields import CustomFieldValueRead
 
 
 class FuncionarioCreate(APIModel):
@@ -15,6 +16,7 @@ class FuncionarioCreate(APIModel):
     cpf: str = Field(min_length=1, max_length=14)
     rg: str | None = Field(default=None, max_length=20)
     data_nascimento: date
+    campos_personalizados: dict[str, object] = Field(default_factory=dict)
 
 
 class FuncionarioUpdate(APIModel):
@@ -28,6 +30,7 @@ class FuncionarioUpdate(APIModel):
     rg: str | None = Field(default=None, max_length=20)
     data_nascimento: date | None = None
     ativo: bool | None = None
+    campos_personalizados: dict[str, object] | None = None
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "FuncionarioUpdate":
@@ -62,3 +65,4 @@ class FuncionarioRead(ReadModel):
     rg: str | None = None
     data_nascimento: date
     ativo: bool
+    campos_personalizados: list[CustomFieldValueRead] = Field(default_factory=list)

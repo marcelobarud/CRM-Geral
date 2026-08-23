@@ -12,6 +12,12 @@ from app.schemas.customers import (
     ClienteRead,
     ClienteUpdate,
 )
+from app.services.custom_fields import (
+    CUSTOM_FIELD_DOMAINS,
+    CustomFieldValidationError,
+    apply_values,
+    read_values,
+)
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
@@ -72,7 +78,14 @@ def get_customer(
         )
         for row in db.execute(purchased_products_query)
     ]
-    customer_read = ClienteRead.model_validate(customer)
+    customer_read = ClienteRead(
+        **ClienteRead.model_validate(customer).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["customers"], customer.id
+        ),
+    )
     return ClienteDetailRead(
         **customer_read.model_dump(),
         produtos_comprados=purchased_products,
@@ -84,11 +97,25 @@ def create_customer(
     payload: ClienteCreate,
     db: Session = Depends(get_db_session),
 ) -> Cliente:
-    customer = Cliente(**payload.model_dump())
+    custom_values = payload.campos_personalizados
+    customer = Cliente(**payload.model_dump(exclude={"campos_personalizados"}))
     db.add(customer)
-    db.commit()
-    db.refresh(customer)
-    return customer
+    try:
+        db.flush()
+        apply_values(db, CUSTOM_FIELD_DOMAINS["customers"], customer.id, custom_values)
+        db.commit()
+        db.refresh(customer)
+    except CustomFieldValidationError as exception:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exception)) from None
+    return ClienteRead(
+        **ClienteRead.model_validate(customer).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["customers"], customer.id
+        ),
+    )
 
 
 @router.patch("/{customer_id}", response_model=ClienteRead)
@@ -101,11 +128,31 @@ def update_customer(
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente não encontrado.")
 
-    for field_name, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    custom_values = updates.pop("campos_personalizados", None)
+    for field_name, value in updates.items():
         setattr(customer, field_name, value)
-    db.commit()
-    db.refresh(customer)
-    return customer
+    try:
+        db.flush()
+        apply_values(
+            db,
+            CUSTOM_FIELD_DOMAINS["customers"],
+            customer.id,
+            custom_values or {},
+        )
+        db.commit()
+        db.refresh(customer)
+    except CustomFieldValidationError as exception:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(exception)) from None
+    return ClienteRead(
+        **ClienteRead.model_validate(customer).model_dump(
+            exclude={"campos_personalizados"}
+        ),
+        campos_personalizados=read_values(
+            db, CUSTOM_FIELD_DOMAINS["customers"], customer.id
+        ),
+    )
 
 
 @router.delete("/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -116,9 +163,7 @@ def delete_customer(
     customer = db.get(Cliente, customer_id)
     if customer is None:
         raise HTTPException(status_code=404, detail="Cliente não encontrado.")
-    if db.scalar(
-        select(Venda.id).where(Venda.cliente_id == customer_id)
-    ) is not None:
+    if db.scalar(select(Venda.id).where(Venda.cliente_id == customer_id)) is not None:
         raise HTTPException(
             status_code=409,
             detail="Cliente possui vendas relacionadas e não pode ser excluído.",

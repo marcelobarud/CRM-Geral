@@ -3,6 +3,7 @@ from decimal import Decimal
 from pydantic import Field, model_validator
 
 from app.schemas.base import APIModel, ReadModel
+from app.schemas.custom_fields import CustomFieldValueRead
 
 
 class ProdutoCreate(APIModel):
@@ -11,6 +12,7 @@ class ProdutoCreate(APIModel):
     preco_custo: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     preco_venda: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     fornecedor_id: int = Field(gt=0)
+    campos_personalizados: dict[str, object] = Field(default_factory=dict)
 
 
 class ProdutoUpdate(APIModel):
@@ -29,6 +31,7 @@ class ProdutoUpdate(APIModel):
         decimal_places=2,
     )
     fornecedor_id: int | None = Field(default=None, gt=0)
+    campos_personalizados: dict[str, object] | None = None
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "ProdutoUpdate":
@@ -55,3 +58,4 @@ class ProdutoRead(ReadModel):
     preco_custo: Decimal
     preco_venda: Decimal
     fornecedor_id: int
+    campos_personalizados: list[CustomFieldValueRead] = Field(default_factory=list)

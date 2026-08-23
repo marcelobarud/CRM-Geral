@@ -1,6 +1,16 @@
 """Models SQLAlchemy do domínio mínimo da V1."""
 
 from app.models.appearance import AppearanceSettings
+from app.models.custom_fields import (
+    ClienteCampo,
+    ClienteCampoValor,
+    FornecedorCampo,
+    FornecedorCampoValor,
+    FuncionarioCampo,
+    FuncionarioCampoValor,
+    ProdutoCampo,
+    ProdutoCampoValor,
+)
 from app.models.entities import (
     Cliente,
     Fornecedor,
@@ -18,4 +28,12 @@ __all__ = [
     "Venda",
     "VendaItem",
     "AppearanceSettings",
+    "ClienteCampo",
+    "ClienteCampoValor",
+    "ProdutoCampo",
+    "ProdutoCampoValor",
+    "FuncionarioCampo",
+    "FuncionarioCampoValor",
+    "FornecedorCampo",
+    "FornecedorCampoValor",
 ]

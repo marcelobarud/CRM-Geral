@@ -79,6 +79,26 @@ EXPECTED_COLUMNS = {
         "rotulo_vendas",
         "rotulo_nova_venda",
     },
+    "cliente_campos": {
+        "id", "nome", "tipo", "opcoes", "obrigatorio", "ativo", "ordem"
+    },
+    "cliente_campos_valores": {"id", "cliente_id", "campo_id", "valor"},
+    "produto_campos": {
+        "id", "nome", "tipo", "opcoes", "obrigatorio", "ativo", "ordem"
+    },
+    "produto_campos_valores": {"id", "produto_id", "campo_id", "valor"},
+    "funcionario_campos": {
+        "id", "nome", "tipo", "opcoes", "obrigatorio", "ativo", "ordem"
+    },
+    "funcionario_campos_valores": {
+        "id", "funcionario_id", "campo_id", "valor"
+    },
+    "fornecedor_campos": {
+        "id", "nome", "tipo", "opcoes", "obrigatorio", "ativo", "ordem"
+    },
+    "fornecedor_campos_valores": {
+        "id", "fornecedor_id", "campo_id", "valor"
+    },
 }
 
 
@@ -110,6 +130,14 @@ def test_only_approved_columns_are_nullable() -> None:
         "vendas": set(),
         "venda_itens": set(),
         "configuracoes_aparencia": {"logo_url"},
+        "cliente_campos": {"opcoes"},
+        "cliente_campos_valores": {"valor"},
+        "produto_campos": {"opcoes"},
+        "produto_campos_valores": {"valor"},
+        "funcionario_campos": {"opcoes"},
+        "funcionario_campos_valores": {"valor"},
+        "fornecedor_campos": {"opcoes"},
+        "fornecedor_campos_valores": {"valor"},
     }
 
 

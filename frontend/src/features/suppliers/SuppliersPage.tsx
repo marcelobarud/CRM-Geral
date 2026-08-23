@@ -11,6 +11,7 @@ import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
 import { SearchInput } from '../../components/SearchInput'
 import { getApiErrorMessage } from '../../services/httpClient'
+import { CustomFieldDetails, CustomFieldFields } from '../customFields/CustomFieldFields'
 import { createSupplier, deleteSupplier, getSupplier, listSuppliers, updateSupplier, type SupplierListFilters } from './api'
 import type { Supplier, SupplierDetails, SupplierPayload } from './types'
 
@@ -18,8 +19,9 @@ const emptySupplier: SupplierPayload = { nome: '', cidade: '', estado: '', rua: 
 
 function SupplierForm({ initialValue, saving, onCancel, onSave }: { initialValue: SupplierPayload; saving: boolean; onCancel: () => void; onSave: (payload: SupplierPayload) => void }) {
   const [form, setForm] = useState({ ...initialValue, complemento: initialValue.complemento ?? '' })
+  const [customValues, setCustomValues] = useState<Record<string, unknown>>({})
   const updateField = (field: keyof SupplierPayload, value: string) => setForm((current) => ({ ...current, [field]: value }))
-  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onSave({ ...form, complemento: form.complemento.trim() || null }) }
+  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onSave({ ...form, complemento: form.complemento.trim() || null, ...(Object.keys(customValues).length ? { campos_personalizados: customValues } : {}) }) }
 
   return <form onSubmit={submit}><div className="form-grid">
     <div className="form-field form-grid-wide"><label htmlFor="supplier-name">Nome</label><input id="supplier-name" required value={form.nome} onChange={(event) => updateField('nome', event.target.value)} /></div>
@@ -29,11 +31,12 @@ function SupplierForm({ initialValue, saving, onCancel, onSave }: { initialValue
     <div className="form-field"><label htmlFor="supplier-street">Rua</label><input id="supplier-street" required value={form.rua} onChange={(event) => updateField('rua', event.target.value)} /></div>
     <div className="form-field"><label htmlFor="supplier-number">Número</label><input id="supplier-number" required value={form.numero} onChange={(event) => updateField('numero', event.target.value)} /></div>
     <div className="form-field form-grid-wide"><label htmlFor="supplier-complement">Complemento (opcional)</label><input id="supplier-complement" value={form.complemento ?? ''} onChange={(event) => updateField('complemento', event.target.value)} /></div>
+    <CustomFieldFields module="suppliers" values={customValues} onChange={(name, value) => setCustomValues((current) => ({ ...current, [name]: value }))} />
   </div><div className="form-actions"><button className="button button-secondary" type="button" onClick={onCancel} disabled={saving}>Cancelar</button><button className="button button-primary" type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar fornecedor'}</button></div></form>
 }
 
 function SupplierDetails({ supplier }: { supplier: SupplierDetails }) {
-  return <><dl className="detail-grid"><div><dt>Nome</dt><dd>{supplier.nome}</dd></div><div><dt>CNPJ</dt><dd>{supplier.cnpj}</dd></div><div><dt>Cidade / Estado</dt><dd>{supplier.cidade} / {supplier.estado}</dd></div><div><dt>Rua</dt><dd>{supplier.rua}, {supplier.numero}</dd></div><div className="form-grid-wide"><dt>Complemento</dt><dd>{supplier.complemento || 'Não informado'}</dd></div></dl><section className="relational-detail-section" aria-labelledby="supplier-products-title"><div className="relational-detail-heading"><h3 id="supplier-products-title">Produtos fornecidos</h3><span>{supplier.produtos.length} {supplier.produtos.length === 1 ? 'produto' : 'produtos'}</span></div>{supplier.produtos.length === 0 ? <p className="relational-detail-empty">Nenhum produto associado a este fornecedor.</p> : <ul className="relational-detail-list">{supplier.produtos.map((product) => <li className="relational-detail-item" key={product.id}><strong>{product.nome}</strong></li>)}</ul>}</section></>
+  return <><dl className="detail-grid"><div><dt>Nome</dt><dd>{supplier.nome}</dd></div><div><dt>CNPJ</dt><dd>{supplier.cnpj}</dd></div><div><dt>Cidade / Estado</dt><dd>{supplier.cidade} / {supplier.estado}</dd></div><div><dt>Rua</dt><dd>{supplier.rua}, {supplier.numero}</dd></div><div className="form-grid-wide"><dt>Complemento</dt><dd>{supplier.complemento || 'Não informado'}</dd></div></dl><CustomFieldDetails values={supplier.campos_personalizados} /><section className="relational-detail-section" aria-labelledby="supplier-products-title"><div className="relational-detail-heading"><h3 id="supplier-products-title">Produtos fornecidos</h3><span>{supplier.produtos.length} {supplier.produtos.length === 1 ? 'produto' : 'produtos'}</span></div>{supplier.produtos.length === 0 ? <p className="relational-detail-empty">Nenhum produto associado a este fornecedor.</p> : <ul className="relational-detail-list">{supplier.produtos.map((product) => <li className="relational-detail-item" key={product.id}><strong>{product.nome}</strong></li>)}</ul>}</section></>
 }
 
 export function SuppliersPage() {
@@ -95,7 +98,7 @@ export function SuppliersPage() {
   }
 
   const formValue: SupplierPayload = selected
-    ? (({ id: _id, ...payload }) => payload)(selected)
+    ? (({ id: _id, campos_personalizados: _custom, ...payload }) => payload)(selected)
     : emptySupplier
   return <div className="crud-page">
     <div className="crud-page-header"><PageHeader eyebrow="Cadastros" title="Fornecedores" description="Mantenha os parceiros do seu negócio organizados." /><button className="button button-primary" type="button" onClick={() => { setSelected(null); setModal('create'); setFeedback(null) }}>+ Novo fornecedor</button></div>

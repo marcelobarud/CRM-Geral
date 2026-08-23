@@ -3,6 +3,7 @@ from decimal import Decimal
 from pydantic import Field, model_validator
 
 from app.schemas.base import APIModel, ReadModel
+from app.schemas.custom_fields import CustomFieldValueRead
 
 
 class ClienteCreate(APIModel):
@@ -12,6 +13,7 @@ class ClienteCreate(APIModel):
     rua: str = Field(min_length=1, max_length=255)
     numero: str = Field(min_length=1, max_length=20)
     complemento: str | None = Field(default=None, max_length=255)
+    campos_personalizados: dict[str, object] = Field(default_factory=dict)
 
 
 class ClienteUpdate(APIModel):
@@ -21,6 +23,7 @@ class ClienteUpdate(APIModel):
     rua: str | None = Field(default=None, min_length=1, max_length=255)
     numero: str | None = Field(default=None, min_length=1, max_length=20)
     complemento: str | None = Field(default=None, max_length=255)
+    campos_personalizados: dict[str, object] | None = None
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "ClienteUpdate":
@@ -42,6 +45,7 @@ class ClienteRead(ReadModel):
     rua: str
     numero: str
     complemento: str | None = None
+    campos_personalizados: list[CustomFieldValueRead] = Field(default_factory=list)
 
 
 class ClienteProdutoCompradoRead(ReadModel):

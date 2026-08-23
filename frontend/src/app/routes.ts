@@ -39,7 +39,10 @@ export function getNavigationGroups(labels: AppearanceLabels): NavigationGroup[]
     },
     {
       label: 'Configurações',
-      items: [{ path: '/settings/appearance', label: 'Aparência', icon: '◌' }],
+      items: [
+        { path: '/settings/appearance', label: 'Aparência', icon: '◌' },
+        { path: '/settings/custom-fields', label: 'Campos personalizados', icon: '✦' },
+      ],
     },
   ]
 }
@@ -55,6 +58,7 @@ const routeDescriptions: Record<string, string> = {
   '/sales/new': 'Registre uma venda com múltiplos itens e preços históricos.',
   '/sales': 'Consulte o histórico de vendas e seus totais.',
   '/settings/appearance': 'Personalize a identidade visual e os rótulos do sistema.',
+  '/settings/custom-fields': 'Defina campos extras para os cadastros operacionais.',
 }
 
 export const notFoundRoute: RouteDefinition = {

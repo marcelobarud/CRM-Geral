@@ -14,10 +14,26 @@ REQUIRED_TABLES = {
     "vendas",
     "venda_itens",
     "configuracoes_aparencia",
+    "cliente_campos",
+    "cliente_campos_valores",
+    "produto_campos",
+    "produto_campos_valores",
+    "funcionario_campos",
+    "funcionario_campos_valores",
+    "fornecedor_campos",
+    "fornecedor_campos_valores",
 }
-EXPECTED_MIGRATION = "20260823_0001"
+EXPECTED_MIGRATION = "20260823_0002"
 
 TEST_DATA_TABLES = (
+    "cliente_campos_valores",
+    "produto_campos_valores",
+    "funcionario_campos_valores",
+    "fornecedor_campos_valores",
+    "cliente_campos",
+    "produto_campos",
+    "funcionario_campos",
+    "fornecedor_campos",
     "configuracoes_aparencia",
     "venda_itens",
     "vendas",

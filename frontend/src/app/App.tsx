@@ -9,6 +9,7 @@ import { NewSalePage, SalesPage } from '../features/sales/SalesPages'
 import { SuppliersPage } from '../features/suppliers/SuppliersPage'
 import { AppearancePage } from '../features/settings/AppearancePage'
 import { AppearanceProvider, useAppearance } from '../features/settings/AppearanceContext'
+import { CustomFieldsPage } from '../features/settings/CustomFieldsPage'
 import { appearanceLabels } from '../features/settings/types'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { getRoute, type RouteDefinition } from './routes'
@@ -41,6 +42,8 @@ function PageForRoute({
       return <SalesPage />
     case '/settings/appearance':
       return <AppearancePage />
+    case '/settings/custom-fields':
+      return <CustomFieldsPage />
     default:
       return <NotFoundPage />
   }

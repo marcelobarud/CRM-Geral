@@ -1,6 +1,7 @@
 from pydantic import Field, model_validator
 
 from app.schemas.base import APIModel, ReadModel
+from app.schemas.custom_fields import CustomFieldValueRead
 
 
 class FornecedorCreate(APIModel):
@@ -11,6 +12,7 @@ class FornecedorCreate(APIModel):
     numero: str = Field(min_length=1, max_length=20)
     complemento: str | None = Field(default=None, max_length=255)
     cnpj: str = Field(min_length=1, max_length=18)
+    campos_personalizados: dict[str, object] = Field(default_factory=dict)
 
 
 class FornecedorUpdate(APIModel):
@@ -21,6 +23,7 @@ class FornecedorUpdate(APIModel):
     numero: str | None = Field(default=None, min_length=1, max_length=20)
     complemento: str | None = Field(default=None, max_length=255)
     cnpj: str | None = Field(default=None, min_length=1, max_length=18)
+    campos_personalizados: dict[str, object] | None = None
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "FornecedorUpdate":
@@ -43,6 +46,7 @@ class FornecedorRead(ReadModel):
     numero: str
     complemento: str | None = None
     cnpj: str
+    campos_personalizados: list[CustomFieldValueRead] = Field(default_factory=list)
 
 
 class FornecedorProdutoRead(ReadModel):

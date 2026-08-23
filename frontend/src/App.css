@@ -1076,6 +1076,69 @@
   line-height: 1.5;
 }
 
+.custom-fields-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr);
+  gap: 1.25rem;
+  margin-top: 1.75rem;
+  align-items: start;
+}
+
+.custom-field-list {
+  margin-top: 2rem;
+}
+
+.custom-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.custom-field-row strong,
+.custom-field-row span {
+  display: block;
+}
+
+.custom-field-row span {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.custom-fields-grid {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.custom-field-details {
+  margin-top: 1.5rem;
+}
+
+.form-field textarea {
+  width: 100%;
+  min-height: 6rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #cfdde5;
+  border-radius: var(--appearance-control-radius);
+  resize: vertical;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--ink);
+  font-size: 0.8rem;
+}
+
 .filter-toolbar > .search-input {
   flex: 1 1 auto;
   min-width: 0;
@@ -1809,6 +1872,10 @@
     grid-template-columns: 1fr;
   }
 
+  .custom-fields-layout {
+    grid-template-columns: 1fr;
+  }
+
   .appearance-preview-card {
     position: static;
   }
@@ -1897,6 +1964,10 @@
   }
 
   .appearance-options {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-fields-grid {
     grid-template-columns: 1fr;
   }
 

@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.appearance import LOGO_STORAGE_DIR
 from app.api.appearance import router as appearance_router
+from app.api.custom_fields import router as custom_fields_router
 from app.api.customers import router as customers_router
 from app.api.employees import router as employees_router
 from app.api.health import router as health_router
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
         name="uploads",
     )
     application.include_router(appearance_router)
+    application.include_router(custom_fields_router)
     application.include_router(customers_router)
     application.include_router(suppliers_router)
     application.include_router(employees_router)
