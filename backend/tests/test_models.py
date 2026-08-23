@@ -59,6 +59,26 @@ EXPECTED_COLUMNS = {
         "preco_unitario",
         "fornecedor_id",
     },
+    "configuracoes_aparencia": {
+        "id",
+        "nome_sistema",
+        "logo_url",
+        "cor_primaria",
+        "cor_secundaria",
+        "cor_destaque",
+        "cor_fundo",
+        "cor_superficie",
+        "cor_texto",
+        "raio_controle",
+        "raio_card",
+        "rotulo_dashboard",
+        "rotulo_clientes",
+        "rotulo_produtos",
+        "rotulo_funcionarios",
+        "rotulo_fornecedores",
+        "rotulo_vendas",
+        "rotulo_nova_venda",
+    },
 }
 
 
@@ -89,6 +109,7 @@ def test_only_approved_columns_are_nullable() -> None:
         "produtos": set(),
         "vendas": set(),
         "venda_itens": set(),
+        "configuracoes_aparencia": {"logo_url"},
     }
 
 

@@ -38,7 +38,9 @@ com busca global backend-driven e filtros detalhados nas cinco telas
 operacionais. A Fase 18 concluiu a auditoria e estabilização das Fases 11 a 17,
 com validação estática, frontend, UI responsiva, OpenAPI, segurança e
 PostgreSQL real. A execução PostgreSQL final foi realizada externamente e
-confirmada como aprovada pelo usuário em 2026-08-22.
+confirmada como aprovada pelo usuário em 2026-08-22. O Plano 03 está em
+execução: suas Fases 1 e 2 foram implementadas, validadas e registradas em
+commits locais separados; a Fase 3 ainda não foi iniciada.
 
 Princípio central: privilegiar simplicidade sobre abrangência. Não tratar
 CRM genérico como autorização para construir uma plataforma completa.
@@ -533,6 +535,11 @@ decisões arquiteturais registradas aqui.
 - [x] Fase 17 concluída: busca global e filtros detalhados por módulo.
 - [x] Fase 18 concluída: auditoria, correções de regressão, validação final e
   documentação atualizada; PostgreSQL real aprovado externamente pelo usuário.
+- [x] Plano 03 — Fase 1: auditoria visual e responsiva concluída sem redesign
+  ou alteração de regras de negócio.
+- [x] Plano 03 — Fase 2: aparência, identidade, nomenclaturas, logo e prévia
+  em tempo real implementadas e validadas.
+- [ ] Plano 03 — Fase 3: campos personalizados por cadastro.
 - [ ] Funcionalidades fora da V1 permanecem no backlog futuro.
 
 ## 13. Comandos
@@ -550,7 +557,7 @@ apontando para um banco dedicado com sufixo `_test`.
 
 ## 14. Última atualização
 
-Data: 2026-08-22
+Data: 2026-08-23
 
 - Ambiguidades do modelo resolvidas: categoria, funcionário responsável,
   histórico de preço, totais, exclusões e tipos mínimos de dados.
@@ -629,8 +636,27 @@ Data: 2026-08-22
   auditoria de secrets aprovados. A execução PostgreSQL real foi realizada
   externamente e confirmada como aprovada pelo usuário; a contagem e os warnings
   dessa execução externa não foram transcritos nesta atualização.
-- A cadeia Alembic permanece linear e com head único `20260820_0002`:
-  `20260818_0001 → 20260820_0001 → 20260820_0002`.
+- O Plano 03 — Fase 1 foi auditado nos viewports `1440 × 900`, `1024 × 768`
+  e `390 × 844`; não foram encontrados overflow, corte ou desalinhamento que
+  justificassem alteração de layout. A validação técnica passou Ruff, pytest
+  PostgreSQL (`71 passed` no checkpoint), lint, typecheck, testes frontend e
+  build. O registro foi feito no commit local `f42edcc`.
+- O Plano 03 — Fase 2 adicionou a tabela singleton explícita
+  `configuracoes_aparencia` e a migration `20260823_0001`, mantendo a cadeia
+  Alembic linear e o head único `20260823_0001`:
+  `20260818_0001 → 20260820_0001 → 20260820_0002 → 20260823_0001`.
+- A aparência é lida e atualizada por `GET/PATCH /api/settings/appearance`,
+  pode ser restaurada por `POST /api/settings/appearance/reset` e aceita logo
+  PNG, JPEG ou WEBP de até 2 MB em `PUT /api/settings/appearance/logo`. Cores,
+  raios e nomenclaturas possuem contratos tipados e validação; não há CSS
+  livre nem credenciais persistidas. Logos ficam em armazenamento local de
+  branding e são servidas pelo caminho `/uploads/branding/`.
+- A tela Configurações → Aparência usa CSS variables, preview em tempo real,
+  nomenclaturas aplicadas à navegação, logo com fallback e layout responsivo.
+  A validação de migration downgrade/upgrade, Ruff e PostgreSQL passou com
+  `74 passed, 16 warnings`; frontend passou lint, typecheck, `60 passed` e
+  build. A checagem manual confirmou a tela em `1440 × 900`, `1024 × 768` e
+  `390 × 844`, sem overflow.
 - Warnings conhecidos de Starlette/httpx e de teardown transacional permanecem
   como dívida técnica não bloqueante; dependências não foram atualizadas apenas
   para removê-los.

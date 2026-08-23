@@ -1,3 +1,5 @@
+import { appearanceLabels, defaultAppearance, type AppearanceLabels } from '../features/settings/types'
+
 export type NavigationItem = {
   path: string
   label: string
@@ -13,28 +15,36 @@ export type RouteDefinition = NavigationItem & {
   description: string
 }
 
-export const navigationGroups: NavigationGroup[] = [
-  {
-    label: 'Visão geral',
-    items: [{ path: '/', label: 'Dashboard', icon: '⌂' }],
-  },
-  {
-    label: 'Cadastros',
-    items: [
-      { path: '/customers', label: 'Clientes', icon: '◎' },
-      { path: '/products', label: 'Produtos', icon: '▦' },
-      { path: '/suppliers', label: 'Fornecedores', icon: '◈' },
-      { path: '/employees', label: 'Funcionários', icon: '♙' },
-    ],
-  },
-  {
-    label: 'Vendas',
-    items: [
-      { path: '/sales/new', label: 'Nova venda', icon: '+' },
-      { path: '/sales', label: 'Vendas', icon: '↗' },
-    ],
-  },
-]
+export function getNavigationGroups(labels: AppearanceLabels): NavigationGroup[] {
+  return [
+    {
+      label: 'Visão geral',
+      items: [{ path: '/', label: labels.dashboard, icon: '⌂' }],
+    },
+    {
+      label: 'Cadastros',
+      items: [
+        { path: '/customers', label: labels.customers, icon: '◎' },
+        { path: '/products', label: labels.products, icon: '▦' },
+        { path: '/suppliers', label: labels.suppliers, icon: '◈' },
+        { path: '/employees', label: labels.employees, icon: '♙' },
+      ],
+    },
+    {
+      label: 'Vendas',
+      items: [
+        { path: '/sales/new', label: labels.newSale, icon: '+' },
+        { path: '/sales', label: labels.sales, icon: '↗' },
+      ],
+    },
+    {
+      label: 'Configurações',
+      items: [{ path: '/settings/appearance', label: 'Aparência', icon: '◌' }],
+    },
+  ]
+}
+
+export const navigationGroups = getNavigationGroups(appearanceLabels(defaultAppearance))
 
 const routeDescriptions: Record<string, string> = {
   '/': 'Uma visão tranquila para acompanhar o dia e acessar suas principais áreas.',
@@ -44,9 +54,8 @@ const routeDescriptions: Record<string, string> = {
   '/employees': 'A equipe responsável pela operação será organizada aqui.',
   '/sales/new': 'Registre uma venda com múltiplos itens e preços históricos.',
   '/sales': 'Consulte o histórico de vendas e seus totais.',
+  '/settings/appearance': 'Personalize a identidade visual e os rótulos do sistema.',
 }
-
-const routeItems = navigationGroups.flatMap((group) => group.items)
 
 export const notFoundRoute: RouteDefinition = {
   path: '/not-found',
@@ -55,8 +64,12 @@ export const notFoundRoute: RouteDefinition = {
   description: 'A página que você tentou acessar não existe.',
 }
 
-export function getRoute(pathname: string): RouteDefinition {
+export function getRoute(
+  pathname: string,
+  labels = appearanceLabels(defaultAppearance),
+): RouteDefinition {
   const normalizedPath = pathname.replace(/\/$/, '') || '/'
+  const routeItems = getNavigationGroups(labels).flatMap((group) => group.items)
   const item = routeItems.find((candidate) => candidate.path === normalizedPath)
 
   if (!item) return notFoundRoute

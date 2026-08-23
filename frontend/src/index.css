@@ -1,8 +1,8 @@
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
-  color: #1e293b;
-  background: #eef4f8;
+  color: var(--appearance-text, #1e293b);
+  background: var(--appearance-background, #eef4f8);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -22,6 +22,14 @@
   --radius-lg: 1.5rem;
   --radius-md: 1rem;
   --shadow-soft: 0 1rem 3rem rgba(52, 86, 111, 0.08);
+  --appearance-primary: #487a98;
+  --appearance-secondary: #2f5975;
+  --appearance-accent: #2f8065;
+  --appearance-background: #eef4f8;
+  --appearance-surface: #ffffff;
+  --appearance-text: #1e293b;
+  --appearance-control-radius: 0.75rem;
+  --appearance-card-radius: 1.5rem;
 }
 
 * {

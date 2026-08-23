@@ -7,6 +7,9 @@ import { EmployeesPage } from '../features/employees/EmployeesPage'
 import { ProductsPage } from '../features/products/ProductsPage'
 import { NewSalePage, SalesPage } from '../features/sales/SalesPages'
 import { SuppliersPage } from '../features/suppliers/SuppliersPage'
+import { AppearancePage } from '../features/settings/AppearancePage'
+import { AppearanceProvider, useAppearance } from '../features/settings/AppearanceContext'
+import { appearanceLabels } from '../features/settings/types'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { getRoute, type RouteDefinition } from './routes'
 
@@ -36,12 +39,15 @@ function PageForRoute({
       return <NewSalePage />
     case '/sales':
       return <SalesPage />
+    case '/settings/appearance':
+      return <AppearancePage />
     default:
       return <NotFoundPage />
   }
 }
 
-function App() {
+function AppContent() {
+  const { preview } = useAppearance()
   const [pathname, setPathname] = useState(currentPathname)
 
   useEffect(() => {
@@ -61,13 +67,17 @@ function App() {
     [pathname],
   )
 
-  const route = getRoute(pathname)
+  const route = getRoute(pathname, appearanceLabels(preview))
 
   return (
     <AppLayout route={route} onNavigate={navigate}>
       <PageForRoute route={route} onNavigate={navigate} />
     </AppLayout>
   )
+}
+
+function App() {
+  return <AppearanceProvider><AppContent /></AppearanceProvider>
 }
 
 export default App

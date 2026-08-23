@@ -13,10 +13,12 @@ REQUIRED_TABLES = {
     "produtos",
     "vendas",
     "venda_itens",
+    "configuracoes_aparencia",
 }
-EXPECTED_MIGRATION = "20260820_0002"
+EXPECTED_MIGRATION = "20260823_0001"
 
 TEST_DATA_TABLES = (
+    "configuracoes_aparencia",
     "venda_itens",
     "vendas",
     "produtos",

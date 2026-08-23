@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from 'react'
 
-import { navigationGroups, type RouteDefinition } from '../app/routes'
+import { getNavigationGroups, type RouteDefinition } from '../app/routes'
 import { useHealthStatus } from '../app/useHealthStatus'
 import { Sidebar } from './Sidebar'
+import { useAppearance } from '../features/settings/AppearanceContext'
+import { appearanceLabels } from '../features/settings/types'
 
 type AppLayoutProps = {
   route: RouteDefinition
@@ -45,6 +47,7 @@ function HealthIndicator() {
 }
 
 export function AppLayout({ route, onNavigate, children }: AppLayoutProps) {
+  const { preview } = useAppearance()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const navigate = (path: string) => {
@@ -55,7 +58,9 @@ export function AppLayout({ route, onNavigate, children }: AppLayoutProps) {
   return (
     <div className="app-frame">
       <Sidebar
-        groups={navigationGroups}
+        groups={getNavigationGroups(appearanceLabels(preview))}
+        brandName={preview.nome_sistema}
+        logoUrl={preview.logo_url}
         currentPath={route.path === '/not-found' ? '' : route.path}
         isOpen={sidebarOpen}
         onNavigate={navigate}

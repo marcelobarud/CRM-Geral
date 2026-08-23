@@ -5,6 +5,8 @@ type SidebarProps = {
   currentPath: string
   isOpen: boolean
   onNavigate: (path: string) => void
+  brandName: string
+  logoUrl: string | null
 }
 
 function isActivePath(currentPath: string, itemPath: string): boolean {
@@ -17,15 +19,15 @@ export function Sidebar({
   currentPath,
   isOpen,
   onNavigate,
+  brandName,
+  logoUrl,
 }: SidebarProps) {
   return (
     <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
       <div className="brand-lockup">
-        <span className="brand-mark" aria-hidden="true">
-          C
-        </span>
+        {logoUrl ? <img className="brand-logo" src={logoUrl} alt="Logo do sistema" /> : <span className="brand-mark" aria-hidden="true">C</span>}
         <div>
-          <strong>CRM Geral</strong>
+          <strong>{brandName}</strong>
           <span>Gestão simples</span>
         </div>
       </div>

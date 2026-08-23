@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
+from app.api.appearance import LOGO_STORAGE_DIR
+from app.api.appearance import router as appearance_router
 from app.api.customers import router as customers_router
 from app.api.employees import router as employees_router
 from app.api.health import router as health_router
@@ -22,11 +25,18 @@ def create_app() -> FastAPI:
             "http://192.168.1.107:5174",
         ],
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Accept", "Content-Type"],
     )
     register_exception_handlers(application)
     application.include_router(health_router)
+    LOGO_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    application.mount(
+        "/uploads",
+        StaticFiles(directory=LOGO_STORAGE_DIR.parent),
+        name="uploads",
+    )
+    application.include_router(appearance_router)
     application.include_router(customers_router)
     application.include_router(suppliers_router)
     application.include_router(employees_router)
