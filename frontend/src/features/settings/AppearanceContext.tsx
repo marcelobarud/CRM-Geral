@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { getApiErrorMessage } from '../../services/httpClient'
-import { getAppearance, resetAppearance, updateAppearance, uploadAppearanceLogo } from './api'
-import { appearanceLabels, defaultAppearance, type AppearanceConfig, type AppearanceLabels, type AppearancePatch } from './types'
+import { getAppearance, getPageAppearance, resetAppearance, resetPageAppearance, updateAppearance, updatePageAppearance, uploadAppearanceLogo } from './api'
+import { appearanceCssVars } from './theme'
+import { appearanceLabels, defaultAppearance, type AppearanceConfig, type AppearanceLabels, type AppearancePageId, type AppearancePatch, type PageAppearanceConfig, type PageAppearanceOverrides } from './types'
 
 type AppearanceContextValue = {
   appearance: AppearanceConfig
@@ -14,6 +15,10 @@ type AppearanceContextValue = {
   save: (patch: AppearancePatch) => Promise<AppearanceConfig>
   reset: () => Promise<AppearanceConfig>
   uploadLogo: (file: File) => Promise<AppearanceConfig>
+  pageAppearances: Partial<Record<AppearancePageId, PageAppearanceConfig>>
+  loadPageAppearance: (page: AppearancePageId) => Promise<PageAppearanceConfig>
+  savePageAppearance: (page: AppearancePageId, payload: PageAppearanceOverrides) => Promise<PageAppearanceConfig>
+  resetPageAppearance: (page: AppearancePageId) => Promise<PageAppearanceConfig>
 }
 
 const AppearanceContext = createContext<AppearanceContextValue | null>(null)
@@ -23,6 +28,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const [preview, setPreview] = useState(defaultAppearance)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pageAppearances, setPageAppearances] = useState<Partial<Record<AppearancePageId, PageAppearanceConfig>>>({})
 
   useEffect(() => {
     let active = true
@@ -43,15 +49,28 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement
-    root.style.setProperty('--appearance-primary', preview.cor_primaria)
-    root.style.setProperty('--appearance-secondary', preview.cor_secundaria)
-    root.style.setProperty('--appearance-accent', preview.cor_destaque)
-    root.style.setProperty('--appearance-background', preview.cor_fundo)
-    root.style.setProperty('--appearance-surface', preview.cor_superficie)
-    root.style.setProperty('--appearance-text', preview.cor_texto)
-    root.style.setProperty('--appearance-control-radius', preview.raio_controle)
-    root.style.setProperty('--appearance-card-radius', preview.raio_card)
+    for (const [name, value] of Object.entries(appearanceCssVars(preview))) {
+      root.style.setProperty(name, value)
+    }
   }, [preview])
+
+  const loadPageAppearance = useCallback(async (page: AppearancePageId) => {
+    const value = await getPageAppearance(page)
+    setPageAppearances((current) => ({ ...current, [page]: value }))
+    return value
+  }, [])
+
+  const savePageAppearance = useCallback(async (page: AppearancePageId, payload: PageAppearanceOverrides) => {
+    const value = await updatePageAppearance(page, payload)
+    setPageAppearances((current) => ({ ...current, [page]: value }))
+    return value
+  }, [])
+
+  const resetPageAppearanceValue = useCallback(async (page: AppearancePageId) => {
+    const value = await resetPageAppearance(page)
+    setPageAppearances((current) => ({ ...current, [page]: value }))
+    return value
+  }, [])
 
   const value = useMemo<AppearanceContextValue>(() => ({
     appearance,
@@ -78,7 +97,11 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       setPreview(saved)
       return saved
     },
-  }), [appearance, error, loading, preview])
+    pageAppearances,
+    loadPageAppearance,
+    savePageAppearance,
+    resetPageAppearance: resetPageAppearanceValue,
+  }), [appearance, error, loading, preview, pageAppearances, loadPageAppearance, savePageAppearance, resetPageAppearanceValue])
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>
 }

@@ -13,6 +13,9 @@ vi.mock('./api', () => ({
   resetAppearance: vi.fn(),
   updateAppearance: vi.fn(),
   uploadAppearanceLogo: vi.fn(),
+  getPageAppearance: vi.fn(),
+  updatePageAppearance: vi.fn(),
+  resetPageAppearance: vi.fn(),
 }))
 
 function renderPage() {
@@ -43,7 +46,7 @@ describe('configuração de aparência', () => {
     fireEvent.change(nameInput, { target: { value: 'CRM Loja' } })
     expect(screen.getByText('CRM Loja')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Salvar aparência' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar aparência global' }))
     await waitFor(() => expect(appearanceApi.updateAppearance).toHaveBeenCalledWith(
       expect.objectContaining({ nome_sistema: 'CRM Loja' }),
     ))
@@ -53,5 +56,11 @@ describe('configuração de aparência', () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Restaurar padrão' }))
     await waitFor(() => expect(appearanceApi.resetAppearance).toHaveBeenCalledOnce())
+  })
+
+  it('oferece a ativação do modo de personalização visual sem expor filtros de página', async () => {
+    renderPage()
+    expect(await screen.findByRole('button', { name: /Ativar modo de personalização visual/ })).toBeTruthy()
+    expect(screen.queryByRole('tablist')).toBeNull()
   })
 })

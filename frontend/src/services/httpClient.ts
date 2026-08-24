@@ -59,7 +59,7 @@ export async function request<T>(
 
 export function requestJson<T>(
   path: string,
-  method: 'POST' | 'PATCH',
+  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   payload: unknown,
 ): Promise<T> {
   return request<T>(path, {

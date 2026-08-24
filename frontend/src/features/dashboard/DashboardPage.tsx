@@ -8,6 +8,7 @@ import { listEmployees } from '../employees/api'
 import { listProducts } from '../products/api'
 import { listSales } from '../sales/api'
 import { listSuppliers } from '../suppliers/api'
+import { useCustomizable } from '../settings/VisualCustomizationContext'
 
 type DashboardPageProps = {
   onNavigate: (path: string) => void
@@ -28,6 +29,7 @@ type SummaryCardProps = {
   icon: string
   href: string
   onNavigate: (path: string) => void
+  customizationKey: string
 }
 
 type QuickActionProps = {
@@ -36,6 +38,7 @@ type QuickActionProps = {
   icon: string
   href: string
   onNavigate: (path: string) => void
+  customizationKey: string
 }
 
 const initialCounts: DashboardCounts = {
@@ -66,10 +69,14 @@ function SummaryCard({
   icon,
   href,
   onNavigate,
+  customizationKey,
 }: SummaryCardProps) {
+  const surfaceCustomization = useCustomizable({ key: customizationKey, type: 'SURFACE', group: 'summary-card', page: 'dashboard', label })
+  const valueCustomization = useCustomizable({ key: `${customizationKey}.value`, type: 'TEXT', group: 'summary-value', page: 'dashboard', label: `${label} valor` })
   return (
     <a
       className="dashboard-summary-card"
+      {...surfaceCustomization}
       href={href}
       onClick={(event) => navigateFromLink(event, href, onNavigate)}
     >
@@ -77,7 +84,7 @@ function SummaryCard({
         {icon}
       </span>
       <span className="dashboard-card-label">{label}</span>
-      <strong className="dashboard-card-value">
+      <strong className="dashboard-card-value" {...valueCustomization}>
         {count === null ? '—' : count}
       </strong>
       <span className="dashboard-card-description">{description}</span>
@@ -92,10 +99,13 @@ function QuickAction({
   icon,
   href,
   onNavigate,
+  customizationKey,
 }: QuickActionProps) {
+  const buttonCustomization = useCustomizable({ key: customizationKey, type: 'BUTTON', group: 'quick-action', page: 'dashboard', label })
   return (
     <a
       className="dashboard-quick-action"
+      {...buttonCustomization}
       href={href}
       onClick={(event) => navigateFromLink(event, href, onNavigate)}
     >
@@ -157,6 +167,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         eyebrow="Visão geral"
         title="Olá, que bom ter você aqui."
         description="Acompanhe o estado atual do CRM e acesse rapidamente o que precisa ser feito."
+        pageId="dashboard"
       />
 
       {loading ? <LoadingState label="Carregando resumo operacional..." /> : null}
@@ -172,8 +183,8 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
               </div>
             </div>
             <div className="dashboard-actions-grid">
-              <QuickAction label="Nova venda" description="Registre uma venda com um ou mais produtos." icon="+" href="/sales/new" onNavigate={onNavigate} />
-              <QuickAction label="Abrir vendas" description="Consulte o histórico e os preços aplicados." icon="↗" href="/sales" onNavigate={onNavigate} />
+              <QuickAction label="Nova venda" description="Registre uma venda com um ou mais produtos." icon="+" href="/sales/new" onNavigate={onNavigate} customizationKey="dashboard.quick_action.new_sale" />
+              <QuickAction label="Abrir vendas" description="Consulte o histórico e os preços aplicados." icon="↗" href="/sales" onNavigate={onNavigate} customizationKey="dashboard.quick_action.sales" />
             </div>
           </section>
 
@@ -186,11 +197,11 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
               <span className="dashboard-section-note">Dados das listagens atuais</span>
             </div>
             <div className="dashboard-summary-grid">
-              <SummaryCard label="Clientes" count={counts.customers} description={counts.customers === 0 ? 'Nenhum cliente cadastrado' : 'Pessoas cadastradas'} icon="◎" href="/customers" onNavigate={onNavigate} />
-              <SummaryCard label="Produtos" count={counts.products} description={counts.products === 0 ? 'Nenhum produto cadastrado' : 'Itens no catálogo'} icon="▦" href="/products" onNavigate={onNavigate} />
-              <SummaryCard label="Fornecedores" count={counts.suppliers} description={counts.suppliers === 0 ? 'Nenhum fornecedor cadastrado' : 'Parceiros cadastrados'} icon="◈" href="/suppliers" onNavigate={onNavigate} />
-              <SummaryCard label="Funcionários" count={counts.employees} description={counts.employees === 0 ? 'Nenhum funcionário cadastrado' : 'Equipe cadastrada'} icon="♙" href="/employees" onNavigate={onNavigate} />
-              <SummaryCard label="Vendas" count={counts.sales} description={counts.sales === 0 ? 'Nenhuma venda registrada' : 'Vendas no histórico'} icon="↗" href="/sales" onNavigate={onNavigate} />
+              <SummaryCard label="Clientes" count={counts.customers} description={counts.customers === 0 ? 'Nenhum cliente cadastrado' : 'Pessoas cadastradas'} icon="◎" href="/customers" onNavigate={onNavigate} customizationKey="dashboard.summary.customers.card" />
+              <SummaryCard label="Produtos" count={counts.products} description={counts.products === 0 ? 'Nenhum produto cadastrado' : 'Itens no catálogo'} icon="▦" href="/products" onNavigate={onNavigate} customizationKey="dashboard.summary.products.card" />
+              <SummaryCard label="Fornecedores" count={counts.suppliers} description={counts.suppliers === 0 ? 'Nenhum fornecedor cadastrado' : 'Parceiros cadastrados'} icon="◈" href="/suppliers" onNavigate={onNavigate} customizationKey="dashboard.summary.suppliers.card" />
+              <SummaryCard label="Funcionários" count={counts.employees} description={counts.employees === 0 ? 'Nenhum funcionário cadastrado' : 'Equipe cadastrada'} icon="♙" href="/employees" onNavigate={onNavigate} customizationKey="dashboard.summary.employees.card" />
+              <SummaryCard label="Vendas" count={counts.sales} description={counts.sales === 0 ? 'Nenhuma venda registrada' : 'Vendas no histórico'} icon="↗" href="/sales" onNavigate={onNavigate} customizationKey="dashboard.summary.sales.card" />
             </div>
           </section>
         </>

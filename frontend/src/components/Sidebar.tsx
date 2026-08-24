@@ -1,4 +1,5 @@
 import type { NavigationGroup } from '../app/routes'
+import { useCustomizable } from '../features/settings/VisualCustomizationContext'
 
 type SidebarProps = {
   groups: NavigationGroup[]
@@ -22,13 +23,16 @@ export function Sidebar({
   brandName,
   logoUrl,
 }: SidebarProps) {
+  const sidebarCustomization = useCustomizable({ key: 'global.sidebar', type: 'SURFACE', group: 'sidebar', label: 'Barra lateral' })
+  const brandCustomization = useCustomizable({ key: 'global.sidebar.brand', type: 'TEXT', group: 'sidebar-brand', label: brandName })
+  const noteCustomization = useCustomizable({ key: 'global.sidebar.note', type: 'SURFACE', group: 'sidebar-note', label: 'Nota da barra lateral' })
   return (
-    <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
-      <div className="brand-lockup">
-        {logoUrl ? <img className="brand-logo" src={logoUrl} alt="Logo do sistema" /> : <span className="brand-mark" aria-hidden="true">C</span>}
+    <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`} {...sidebarCustomization}>
+      <div className="brand-lockup" {...brandCustomization}>
+        {logoUrl ? <img className="brand-logo" data-customization-role="logo" src={logoUrl} alt="Logo do sistema" /> : <span className="brand-mark" data-customization-role="logo" aria-hidden="true">C</span>}
         <div>
-          <strong>{brandName}</strong>
-          <span>Gestão simples</span>
+          <strong data-customization-role="name">{brandName}</strong>
+          <span data-customization-role="subtitle">Gestão simples</span>
         </div>
       </div>
 
@@ -61,7 +65,7 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="sidebar-note">
+      <div className="sidebar-note" {...noteCustomization}>
         <span className="sidebar-note-dot" aria-hidden="true" />
         <div>
           <strong>Fundação V1</strong>

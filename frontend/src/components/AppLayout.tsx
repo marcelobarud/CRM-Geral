@@ -5,11 +5,16 @@ import { useHealthStatus } from '../app/useHealthStatus'
 import { Sidebar } from './Sidebar'
 import { useAppearance } from '../features/settings/AppearanceContext'
 import { appearanceLabels } from '../features/settings/types'
+import { pageIdForPath } from '../features/settings/types'
+import { pageAppearanceCssVars } from '../features/settings/theme'
+import type { PageAppearanceTheme } from '../features/settings/types'
+import { useCustomizable } from '../features/settings/VisualCustomizationContext'
 
 type AppLayoutProps = {
   route: RouteDefinition
   onNavigate: (path: string) => void
   children: ReactNode
+  pageTheme?: PageAppearanceTheme
 }
 
 function HealthIndicator() {
@@ -46,9 +51,15 @@ function HealthIndicator() {
   )
 }
 
-export function AppLayout({ route, onNavigate, children }: AppLayoutProps) {
+export function AppLayout({ route, onNavigate, children, pageTheme }: AppLayoutProps) {
   const { preview } = useAppearance()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const pageCustomization = useCustomizable({
+    key: `${pageIdForPath(route.path)}.page`,
+    type: 'PAGE',
+    page: pageIdForPath(route.path),
+    label: route.label,
+  })
 
   const navigate = (path: string) => {
     onNavigate(path)
@@ -94,7 +105,16 @@ export function AppLayout({ route, onNavigate, children }: AppLayoutProps) {
           <HealthIndicator />
         </header>
 
-        <main className="main-content">{children}</main>
+        <main
+          className="main-content"
+          {...pageCustomization}
+          style={{
+            ...(pageTheme ? pageAppearanceCssVars(pageTheme) : {}),
+            ...pageCustomization.style,
+          }}
+        >
+          {children}
+        </main>
       </div>
     </div>
   )

@@ -15,6 +15,7 @@ import { listEmployees } from '../employees/api'
 import type { Employee } from '../employees/types'
 import { listProducts } from '../products/api'
 import type { Product } from '../products/types'
+import { useCustomizable } from '../settings/VisualCustomizationContext'
 import { createSale, deleteSale, getSale, listSales, type SaleListFilters } from './api'
 import type { Sale, SaleCreatePayload } from './types'
 
@@ -192,6 +193,9 @@ export function NewSalePage() {
   const [nextItemKey, setNextItemKey] = useState(1)
   const [saving, setSaving] = useState(false)
   const [createdSale, setCreatedSale] = useState<Sale | null>(null)
+  const contextCustomization = useCustomizable({ key: 'new_sale.context_card', type: 'SURFACE', group: 'sale-card', page: 'new_sale', label: 'Dados da venda' })
+  const itemsCustomization = useCustomizable({ key: 'new_sale.items_card', type: 'SURFACE', group: 'sale-card', page: 'new_sale', label: 'Itens da venda' })
+  const submitCustomization = useCustomizable({ key: 'new_sale.submit_button', type: 'BUTTON', group: 'primary-action', page: 'new_sale', label: 'Salvar venda' })
 
   const loadSaleDependencies = useCallback(async () => {
     setLoading(true)
@@ -321,7 +325,7 @@ export function NewSalePage() {
   return (
     <div className="sales-page">
       <div className="sales-page-header">
-        <PageHeader eyebrow="Vendas" title="Nova venda" description="Monte uma venda com segurança e acompanhe os valores antes de confirmar." />
+        <PageHeader eyebrow="Vendas" title="Nova venda" description="Monte uma venda com segurança e acompanhe os valores antes de confirmar." pageId="new_sale" />
         <a className="button button-secondary" href="/sales">Ver vendas</a>
       </div>
       {feedback ? <FeedbackBanner kind="success" message={feedback} onDismiss={() => setFeedback(null)} /> : null}
@@ -338,7 +342,7 @@ export function NewSalePage() {
       ) : null}
       {loading ? <LoadingState label="Carregando clientes, funcionários e produtos..." /> : (
         <form className="sale-layout" onSubmit={submitSale}>
-          <section className="sale-card">
+          <section className="sale-card" {...contextCustomization}>
             <div className="sale-section-heading">
               <div><p className="eyebrow">Contexto</p><h2>Dados da venda</h2></div>
               <span className="sale-step">1</span>
@@ -367,7 +371,7 @@ export function NewSalePage() {
             </div>
           </section>
 
-          <section className="sale-card sale-items-card">
+          <section className="sale-card sale-items-card" {...itemsCustomization}>
             <div className="sale-section-heading">
               <div><p className="eyebrow">Composição</p><h2>Itens da venda</h2><p className="sale-section-description">O preço unitário é somente informativo e será confirmado pelo backend.</p></div>
               <span className="sale-step">2</span>
@@ -389,7 +393,7 @@ export function NewSalePage() {
             <h2>Total da venda</h2>
             <strong className="sale-total">{formatMoney(visualTotal)}</strong>
             <p>Estimativa visual com o preço atual do catálogo. O total definitivo será retornado pelo backend.</p>
-            <button className="button button-primary sale-submit" type="submit" disabled={saving || !prerequisitesReady || items.length === 0}>
+            <button className="button button-primary sale-submit" type="submit" {...submitCustomization} disabled={saving || !prerequisitesReady || items.length === 0}>
               {saving ? 'Salvando venda...' : 'Salvar venda'}
             </button>
           </aside>
@@ -474,6 +478,7 @@ export function SalesPage() {
   const [optionsLoading, setOptionsLoading] = useState(true)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const loadRequestId = useRef(0)
+  const tableCustomization = useCustomizable({ key: 'sales.table', type: 'TABLE', group: 'data-table', page: 'sales', label: 'Histórico de vendas' })
 
   const loadSales = useCallback(async () => {
     const requestId = ++loadRequestId.current
@@ -569,12 +574,12 @@ export function SalesPage() {
   return (
     <div className="sales-page">
       <div className="sales-page-header">
-        <PageHeader eyebrow="Vendas" title="Vendas" description="Consulte o histórico das vendas e seus preços históricos." />
+        <PageHeader eyebrow="Vendas" title="Vendas" description="Consulte o histórico das vendas e seus preços históricos." pageId="sales" />
         <a className="button button-primary" href="/sales/new">+ Nova venda</a>
       </div>
       {feedback ? <FeedbackBanner kind="success" message={feedback} onDismiss={() => setFeedback(null)} /> : null}
       <section className="filter-toolbar" aria-label="Filtros de vendas">
-        <SearchInput value={searchDraft} onChange={setSearchDraft} onSearch={(value) => setAppliedFilters((current) => { const search = value.trim(); if (current.search === search) return current; const { search: _search, ...filters } = current; return search ? { ...filters, search } : filters })} onClear={() => setSearchDraft('')} label="Pesquisar vendas" />
+        <SearchInput value={searchDraft} onChange={setSearchDraft} onSearch={(value) => setAppliedFilters((current) => { const search = value.trim(); if (current.search === search) return current; const { search: _search, ...filters } = current; return search ? { ...filters, search } : filters })} onClear={() => setSearchDraft('')} label="Pesquisar vendas" customizationKey="sales.search_input" customizationPage="sales" />
         <FilterMenu activeCount={[appliedFilters.productId, appliedFilters.customerId, appliedFilters.employeeId, appliedFilters.dateFrom, appliedFilters.dateTo, appliedFilters.totalMin, appliedFilters.totalMax].filter(Boolean).length} canClear={hasDraftFilters || hasAppliedFilters} open={filtersOpen} onToggle={() => setFiltersOpen((current) => !current)} onClose={() => setFiltersOpen(false)} onApply={applyFilters} onClear={clearFilters}>
           <label className="filter-field">Produto<select value={productIdDraft} onChange={(event) => setProductIdDraft(event.target.value ? Number(event.target.value) : '')}><option value="">Todos os produtos</option>{filterProducts.map((product) => <option value={product.id} key={product.id}>{product.nome}</option>)}</select></label>
           <label className="filter-field">Cliente<select value={customerIdDraft} onChange={(event) => setCustomerIdDraft(event.target.value ? Number(event.target.value) : '')}><option value="">Todos os clientes</option>{filterCustomers.map((customer) => <option value={customer.id} key={customer.id}>{customer.nome}</option>)}</select></label>
@@ -588,7 +593,7 @@ export function SalesPage() {
       {loading || optionsLoading ? <LoadingState label="Carregando vendas..." /> : error ? <ErrorState description={error} onRetry={() => void loadSales()} /> : sales.length === 0 ? (
         <div className="data-card sales-empty-card"><EmptyState title={hasAppliedFilters ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Nenhuma venda registrada ainda'} description={hasAppliedFilters ? 'Tente ajustar a pesquisa ou limpar os filtros.' : 'Crie sua primeira venda para começar o histórico operacional.'} />{!hasAppliedFilters ? <a className="button button-primary" href="/sales/new">Criar nova venda</a> : null}</div>
       ) : (
-        <div className="sales-list">
+        <div className="sales-list" {...tableCustomization}>
           {sales.map((sale) => <article className="sale-list-card" key={sale.id}><div className="sale-list-header"><div><span className="sale-list-kicker">Venda</span><strong>#{sale.id}</strong></div><span className="sale-list-date">{formatDate(sale.data_venda)}</span></div><dl className="sale-list-meta"><div><dt>Produto</dt><dd className="sale-list-product">{saleProductLabel(sale)}</dd></div><div><dt>Valor Total</dt><dd className="sale-list-total">{formatMoney(sale.total)}</dd></div><div><dt>Cliente</dt><dd>{sale.cliente.nome}</dd></div><div><dt>Funcionário</dt><dd>{sale.funcionario.nome_completo}</dd></div></dl><div className="sale-list-actions"><button className="button button-secondary sale-detail-button" type="button" onClick={() => void openSaleDetails(sale.id)}>Ver detalhes</button><button className="button button-danger sale-delete-button" type="button" onClick={() => requestSaleDeletion(sale)}>Excluir venda</button></div></article>)}
         </div>
       )}

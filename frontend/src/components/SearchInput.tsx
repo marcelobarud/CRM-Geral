@@ -1,5 +1,8 @@
 import { useEffect, useId, useRef } from 'react'
 
+import type { AppearancePageId } from '../features/settings/types'
+import { useCustomizable } from '../features/settings/VisualCustomizationContext'
+
 type SearchInputProps = {
   value: string
   onChange: (value: string) => void
@@ -9,6 +12,8 @@ type SearchInputProps = {
   label?: string
   placeholder?: string
   disabled?: boolean
+  customizationKey?: string
+  customizationPage?: AppearancePageId
 }
 
 export function SearchInput({
@@ -20,9 +25,18 @@ export function SearchInput({
   label = 'Pesquisar',
   placeholder = 'Pesquisar...',
   disabled = false,
+  customizationKey = 'settings.search_input',
+  customizationPage,
 }: SearchInputProps) {
   const inputId = useId()
   const onSearchRef = useRef(onSearch)
+  const customization = useCustomizable({
+    key: customizationKey,
+    type: 'INPUT',
+    group: 'search-input',
+    page: customizationPage,
+    label,
+  })
 
   useEffect(() => {
     onSearchRef.current = onSearch
@@ -43,6 +57,7 @@ export function SearchInput({
           value={value}
           placeholder={placeholder}
           disabled={disabled}
+          {...customization}
           onChange={(event) => onChange(event.target.value)}
         />
         {value ? (

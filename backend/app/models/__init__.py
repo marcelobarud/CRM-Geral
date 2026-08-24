@@ -1,6 +1,10 @@
 """Models SQLAlchemy do domínio mínimo da V1."""
 
-from app.models.appearance import AppearanceSettings
+from app.models.appearance import (
+    AppearanceSettings,
+    ElementAppearanceOverride,
+    PageAppearanceSettings,
+)
 from app.models.custom_fields import (
     ClienteCampo,
     ClienteCampoValor,
@@ -28,6 +32,8 @@ __all__ = [
     "Venda",
     "VendaItem",
     "AppearanceSettings",
+    "PageAppearanceSettings",
+    "ElementAppearanceOverride",
     "ClienteCampo",
     "ClienteCampoValor",
     "ProdutoCampo",

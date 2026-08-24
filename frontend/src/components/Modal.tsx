@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { useCustomizable } from '../features/settings/VisualCustomizationContext'
 
 type ModalProps = {
   title: string
@@ -15,6 +16,9 @@ export function Modal({
   onClose,
   size = 'small',
 }: ModalProps) {
+  const surfaceCustomization = useCustomizable({ key: 'global.modal.surface', type: 'SURFACE', group: 'modal', label: title })
+  const titleCustomization = useCustomizable({ key: 'global.modal.title', type: 'TEXT', group: 'modal-title', label: title })
+  const closeCustomization = useCustomizable({ key: 'global.modal.close', type: 'BUTTON', group: 'modal-action', label: 'Fechar' })
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -28,6 +32,7 @@ export function Modal({
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
         className={`modal-card modal-card-${size}`}
+        {...surfaceCustomization}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -35,11 +40,12 @@ export function Modal({
       >
         <div className="modal-header">
           <div>
-            <h2 id="modal-title">{title}</h2>
+            <h2 id="modal-title" {...titleCustomization}>{title}</h2>
             {description ? <p>{description}</p> : null}
           </div>
           <button
             className="icon-button"
+            {...closeCustomization}
             type="button"
             aria-label="Fechar"
             onClick={onClose}

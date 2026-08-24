@@ -10,7 +10,8 @@ import { SuppliersPage } from '../features/suppliers/SuppliersPage'
 import { AppearancePage } from '../features/settings/AppearancePage'
 import { AppearanceProvider, useAppearance } from '../features/settings/AppearanceContext'
 import { CustomFieldsPage } from '../features/settings/CustomFieldsPage'
-import { appearanceLabels } from '../features/settings/types'
+import { VisualCustomizationProvider } from '../features/settings/VisualCustomizationContext'
+import { appearanceLabels, pageIdForPath } from '../features/settings/types'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { getRoute, type RouteDefinition } from './routes'
 
@@ -50,7 +51,7 @@ function PageForRoute({
 }
 
 function AppContent() {
-  const { preview } = useAppearance()
+  const { preview, pageAppearances, loadPageAppearance } = useAppearance()
   const [pathname, setPathname] = useState(currentPathname)
 
   useEffect(() => {
@@ -71,16 +72,21 @@ function AppContent() {
   )
 
   const route = getRoute(pathname, appearanceLabels(preview))
+  const pageId = pageIdForPath(pathname)
+
+  useEffect(() => {
+    void loadPageAppearance(pageId)
+  }, [loadPageAppearance, pageId])
 
   return (
-    <AppLayout route={route} onNavigate={navigate}>
+    <AppLayout route={route} onNavigate={navigate} pageTheme={pageAppearances[pageId]?.resolved}>
       <PageForRoute route={route} onNavigate={navigate} />
     </AppLayout>
   )
 }
 
 function App() {
-  return <AppearanceProvider><AppContent /></AppearanceProvider>
+  return <AppearanceProvider><VisualCustomizationProvider><AppContent /></VisualCustomizationProvider></AppearanceProvider>
 }
 
 export default App

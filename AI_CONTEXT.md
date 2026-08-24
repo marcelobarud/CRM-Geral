@@ -678,3 +678,90 @@ Data: 2026-08-23
 - Warnings conhecidos de Starlette/httpx e de teardown transacional permanecem
   como dívida técnica não bloqueante; dependências não foram atualizadas apenas
   para removê-los.
+
+## Atualização posterior — personalização visual controlada
+
+- A área Configurações → Aparência foi simplificada para manter o branding
+  global sempre disponível e oferecer o botão `Ativar modo de personalização
+  visual`; não há mais edição de overrides de página exposta nessa tela.
+- Foi adicionada a migration reversível `20260823_0004`, criando
+  `configuracoes_aparencia_elementos` para overrides tipados e independentes
+  das tabelas comerciais. A cadeia Alembic permanece linear, com head
+  `20260823_0004`.
+- O backend expõe `GET/PUT/DELETE /api/settings/appearance/overrides` por
+  chave estável, valida o tipo (`TEXT`, `SURFACE`, `BUTTON`, `INPUT`, `TABLE`,
+  `PAGE`) e aceita somente propriedades permitidas, sem CSS livre, expressões,
+  seletores ou regras arbitrárias de layout.
+- O frontend usa `data-customization-key` e metadados de tipo/grupo/página em
+  componentes reutilizáveis. O editor suporta hover, seleção por clique,
+  navegação normal, preview imediato em draft, salvar, cancelar, desfazer e
+  restaurar o elemento; a resolução segue elemento específico → herança
+  disponível → branding global → default.
+- Foram instrumentados Dashboard, Clientes, Produtos, Funcionários,
+  Fornecedores, Vendas e Nova venda com elementos `PAGE`, `TEXT`, `SURFACE`,
+  `BUTTON`, `INPUT` e `TABLE`. A edição permanece limitada a cor, peso/tamanho
+  controlados, superfície, borda, raio e tokens de tabela conforme o tipo.
+- Campos Personalizados não foram alterados e não foram incorporados ao
+  editor visual. Nenhuma migration ou tabela comercial foi criada para essa
+  funcionalidade; o Plano 04 não foi iniciado.
+- A validação deste checkpoint passou com backend PostgreSQL em duas execuções
+  consecutivas: `80 passed, 17 warnings` em cada uma. Frontend: `67 passed`,
+  typecheck, lint e build aprovados. A validação manual confirmou desktop,
+  notebook e mobile em `1440 × 900`, `1024 × 768` e `390 × 844`, sem overflow;
+  o console permaneceu sem erros.
+- Permanecem apenas os warnings conhecidos de Starlette/httpx e do teardown
+  transacional SQLAlchemy. Nenhuma dependência foi alterada para ocultá-los.
+
+## Atualização posterior — descoberta visual automática e editor híbrido
+
+- O editor visual agora resolve elementos apresentados no DOM mesmo quando eles
+  não possuem `data-customization-key` explícito. A resolução considera tag,
+  role, texto próprio, atributos semânticos, classes estáveis e
+  `getComputedStyle`, ignorando wrappers sem apresentação visual e qualquer
+  subtree marcado com `data-customization-ignore`.
+- Foram cobertas as categorias semânticas `TEXT`, `ICON`, `BUTTON`, `INPUT`,
+  `SELECT`, `TEXTAREA`, `SURFACE`, `BORDERED_SURFACE`, `CARD`, `TABLE`,
+  `TABLE_HEADER`, `TABLE_CELL`, `LINK`, `BADGE` e `PAGE`. A persistência mantém
+  o contrato backend existente, mapeando essas categorias para os tipos
+  canônicos já autorizados (`TEXT`, `SURFACE`, `BUTTON`, `INPUT`, `TABLE` e
+  `PAGE`), sem CSS arbitrário ou novo schema.
+- A identidade híbrida prioriza metadado explícito, depois uma chave estrutural
+  estável por página/região/semântica e, por último, um fallback somente para
+  prévia. Não são persistidos `nth-child`, posição, XPath, seletor bruto ou
+  classe gerada. Elementos sem identidade estável mostram aviso e o salvamento
+  é bloqueado, sem esconder a prévia.
+- A tabela usa a chave estável da tabela mais a coluna identificada pelo
+  cabeçalho; linhas repetidas da mesma coluna compartilham a identidade sem
+  depender da posição da linha. A seleção expõe a hierarquia visual de
+  ancestrais, permitindo subir de texto/célula para card, superfície ou página.
+- O modo `Selecionar` intercepta clique, hover e seleção com overlay fixo,
+  enquanto `Navegar` preserva links, botões e o comportamento normal do CRM.
+  Eventos são delegados no `document`, portanto conteúdos dinâmicos,
+  dropdowns, modais e portais também podem ser inspecionados. Toolbar, painel,
+  overlay e estilos do editor ficam fora da descoberta.
+- Componentes compartilhados receberam identidade visual controlada quando
+  apropriado (Sidebar, Modal, FeedbackBanner, EmptyState, ErrorState e
+  LoadingState). Isso não alterou a lógica de Campos Personalizados nem os
+  fluxos comerciais.
+- Preview e drafts são aplicados imediatamente. Overrides automáticos usam uma
+  folha de estilos controlada por atributos estáveis, além da aplicação direta
+  durante a inspeção, para sobreviver a rerenders e troca de rota. Cancelar,
+  desfazer, restaurar elemento, salvar e reset continuam disponíveis.
+- A cobertura frontend do editor inclui texto e superfície sem instrumentação,
+  categorias semânticas, tabela repetida, hierarquia, conteúdo modal/portal,
+  modos Selecionar/Navegar e exclusão da UI do próprio editor. O frontend
+  terminou com `72 passed` em 16 arquivos, lint, typecheck e build aprovados.
+- A validação manual passou nas telas Dashboard, Clientes, Produtos,
+  Funcionários, Fornecedores e Vendas, incluindo navegação normal e seleção
+  visual automática. Em `1440 × 900`, `1024 × 768` e `390 × 844`, toolbar,
+  painel, controles e overlay permaneceram contidos, sem overflow horizontal;
+  no mobile o painel foi dimensionado dentro da largura disponível.
+- A migration head continuou em `20260823_0004`; nenhuma migration, model,
+  endpoint ou regra backend foi criada ou alterada nesta etapa. Ruff passou e
+  a suíte PostgreSQL real passou duas vezes consecutivas com `80 passed,
+  17 warnings` em cada execução.
+- Os warnings restantes são os já conhecidos de Starlette/httpx e
+  `SAWarning: transaction already deassociated from connection` no teardown.
+  Não foram atualizadas dependências para suprimi-los. Credenciais não foram
+  persistidas em arquivos ou código; o Plano 04/Fase 18 não foi iniciado e
+  nenhum commit ou push foi realizado.

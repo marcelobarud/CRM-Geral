@@ -9,16 +9,20 @@ export function ErrorState({
   description,
   onRetry,
 }: ErrorStateProps) {
+  const rootCustomization = useCustomizable({ key: 'global.error-state', type: 'SURFACE', group: 'system-state', label: title })
+  const titleCustomization = useCustomizable({ key: 'global.error-state.title', type: 'TEXT', group: 'system-state', label: title })
+  const descriptionCustomization = useCustomizable({ key: 'global.error-state.description', type: 'TEXT', group: 'system-state', label: description })
+  const retryCustomization = useCustomizable({ key: 'global.error-state.retry', type: 'BUTTON', group: 'system-state', label: 'Tentar novamente' })
   return (
-    <div className="state-card state-card-error" role="alert">
+    <div className="state-card state-card-error" {...rootCustomization} role="alert">
       <span className="state-icon" aria-hidden="true">
         !
       </span>
       <div>
-        <strong>{title}</strong>
-        <p>{description}</p>
+        <strong {...titleCustomization}>{title}</strong>
+        <p {...descriptionCustomization}>{description}</p>
         {onRetry ? (
-          <button className="text-button" type="button" onClick={onRetry}>
+          <button className="text-button" type="button" {...retryCustomization} onClick={onRetry}>
             Tentar novamente
           </button>
         ) : null}
@@ -26,3 +30,4 @@ export function ErrorState({
     </div>
   )
 }
+import { useCustomizable } from '../features/settings/VisualCustomizationContext'
