@@ -9,6 +9,7 @@ import { pageIdForPath } from '../features/settings/types'
 import { pageAppearanceCssVars } from '../features/settings/theme'
 import type { PageAppearanceTheme } from '../features/settings/types'
 import { useCustomizable } from '../features/settings/VisualCustomizationContext'
+import { resolveBackendAssetUrl } from '../services/httpClient'
 
 type AppLayoutProps = {
   route: RouteDefinition
@@ -71,7 +72,7 @@ export function AppLayout({ route, onNavigate, children, pageTheme }: AppLayoutP
       <Sidebar
         groups={getNavigationGroups(appearanceLabels(preview))}
         brandName={preview.nome_sistema}
-        logoUrl={preview.logo_url}
+        logoUrl={resolveBackendAssetUrl(preview.logo_url)}
         currentPath={route.path === '/not-found' ? '' : route.path}
         isOpen={sidebarOpen}
         onNavigate={navigate}

@@ -6,6 +6,12 @@ export const API_BASE_URL = (
   configuredBaseUrl || 'http://127.0.0.1:8000'
 ).replace(/\/+$/, '')
 
+export function resolveBackendAssetUrl(path: string | null): string | null {
+  if (!path) return null
+  if (/^https?:\/\//i.test(path)) return path
+  return `${API_BASE_URL}/${path.replace(/^\/+/, '')}`
+}
+
 export class ApiError extends Error {
   readonly status: number
 

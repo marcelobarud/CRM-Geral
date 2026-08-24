@@ -1,7 +1,10 @@
 import uuid
+import warnings
+from io import BytesIO
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
@@ -25,6 +28,8 @@ from app.schemas.appearance import (
 router = APIRouter(prefix="/api/settings/appearance", tags=["appearance"])
 LOGO_STORAGE_DIR = Path(__file__).resolve().parents[2] / "storage" / "branding"
 MAX_LOGO_BYTES = 2 * 1024 * 1024
+MAX_LOGO_DIMENSION = 1024
+MAX_LOGO_PIXELS = 25_000_000
 
 DEFAULTS = {
     "id": 1,
@@ -131,6 +136,69 @@ def remove_logo_file(logo_url: str | None) -> None:
     filename = Path(logo_url).name
     if filename:
         (LOGO_STORAGE_DIR / filename).unlink(missing_ok=True)
+
+
+def normalize_logo(body: bytes, content_type: str) -> tuple[bytes, str]:
+    expected_format = {
+        "image/png": "PNG",
+        "image/jpeg": "JPEG",
+        "image/webp": "WEBP",
+    }[content_type]
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(body)) as image:
+                if image.format != expected_format:
+                    raise ValueError("O conteúdo não corresponde ao tipo informado")
+                if image.width * image.height > MAX_LOGO_PIXELS:
+                    raise ValueError("A imagem excede o limite seguro de pixels")
+                image.verify()
+
+            with Image.open(BytesIO(body)) as image:
+                image.load()
+                normalized = ImageOps.exif_transpose(image)
+                normalized.thumbnail(
+                    (MAX_LOGO_DIMENSION, MAX_LOGO_DIMENSION),
+                    Image.Resampling.LANCZOS,
+                )
+                if expected_format == "JPEG" and normalized.mode not in {"L", "RGB"}:
+                    normalized = normalized.convert("RGB")
+                output = BytesIO()
+                save_options = {"format": expected_format}
+                if expected_format == "PNG":
+                    save_options["optimize"] = True
+                elif expected_format == "JPEG":
+                    save_options.update({"quality": 95, "optimize": True})
+                else:
+                    save_options.update({"quality": 95, "method": 6})
+                normalized.save(output, **save_options)
+                normalized_bytes = output.getvalue()
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning):
+        raise HTTPException(
+            status_code=413,
+            detail="A imagem excede o limite seguro de dimensões.",
+        ) from None
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise HTTPException(
+            status_code=415,
+            detail="O conteúdo enviado não é uma imagem PNG, JPEG ou WEBP válida.",
+        ) from None
+
+    if len(normalized_bytes) > MAX_LOGO_BYTES:
+        raise HTTPException(status_code=413, detail="A logo deve ter no máximo 2 MB.")
+    return normalized_bytes, expected_format.lower().replace("jpeg", "jpg")
+
+
+def detect_logo_content_type(body: bytes) -> str | None:
+    try:
+        with Image.open(BytesIO(body)) as image:
+            return {
+                "PNG": "image/png",
+                "JPEG": "image/jpeg",
+                "WEBP": "image/webp",
+            }.get(image.format)
+    except (Image.DecompressionBombError, OSError, UnidentifiedImageError):
+        return None
 
 
 @router.get("", response_model=AppearanceRead)
@@ -320,36 +388,33 @@ def reset_appearance_override(
 
 @router.put("/logo", response_model=AppearanceRead)
 async def upload_logo(
-    request: Request,
+    file: UploadFile = File(...),
     db: Session = Depends(get_db_session),
 ) -> AppearanceSettings:
-    content_type = request.headers.get("content-type", "").split(";", 1)[0].lower()
-    extensions = {
-        "image/png": ("png", b"\x89PNG\r\n\x1a\n"),
-        "image/jpeg": ("jpg", b"\xff\xd8\xff"),
-        "image/webp": ("webp", b"RIFF"),
-    }
-    if content_type not in extensions:
+    content_type = (file.content_type or "").split(";", 1)[0].lower()
+    if content_type == "application/octet-stream":
+        content_type = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+    }.get(Path(file.filename or "").suffix.lower(), content_type)
+    body = await file.read()
+    if len(body) > MAX_LOGO_BYTES:
+        raise HTTPException(status_code=413, detail="A logo deve ter no máximo 2 MB.")
+    if content_type not in {"image/png", "image/jpeg", "image/webp"}:
+        content_type = detect_logo_content_type(body) or content_type
+    if content_type not in {"image/png", "image/jpeg", "image/webp"}:
         raise HTTPException(
             status_code=415,
             detail="Envie uma imagem PNG, JPEG ou WEBP.",
         )
-    body = await request.body()
-    if len(body) > MAX_LOGO_BYTES:
-        raise HTTPException(status_code=413, detail="A logo deve ter no máximo 2 MB.")
-    extension, signature = extensions[content_type]
-    if not body.startswith(signature) or (
-        content_type == "image/webp" and b"WEBP" not in body[:16]
-    ):
-        raise HTTPException(
-            status_code=415,
-            detail="O conteúdo enviado não corresponde ao tipo da imagem.",
-        )
+    normalized_body, extension = normalize_logo(body, content_type)
 
     LOGO_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4().hex}.{extension}"
     destination = LOGO_STORAGE_DIR / filename
-    destination.write_bytes(body)
+    destination.write_bytes(normalized_body)
     settings = appearance_or_default(db)
     previous_logo = settings.logo_url
     settings.logo_url = f"/uploads/branding/{filename}"

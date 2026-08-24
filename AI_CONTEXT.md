@@ -765,3 +765,51 @@ Data: 2026-08-23
   Não foram atualizadas dependências para suprimi-los. Credenciais não foram
   persistidas em arquivos ou código; o Plano 04/Fase 18 não foi iniciado e
   nenhum commit ou push foi realizado.
+
+## Atualização posterior — correção do upload e exibição da logo
+
+- A causa raiz da imagem quebrada foi confirmada no fluxo real: o backend
+  persistia `/uploads/branding/<uuid>.png` e servia corretamente esse recurso
+  em `http://127.0.0.1:8000`, mas o frontend usava o caminho relativo
+  diretamente no `<img>`. O navegador então buscava a URL no Vite
+  (`5173/uploads/...`), que respondia o `index.html` com `200 text/html` em
+  vez da imagem.
+- O contrato de upload foi explicitado como `multipart/form-data`, com campo
+  `file`, e o OpenAPI passou a descrevê-lo. O frontend usa `FormData` e não
+  fixa manualmente o header multipart/boundary. MIME ausente ou genérico pode
+  ser inferido apenas como auxílio, mas o backend confirma o formato real com
+  Pillow; extensão sozinha nunca autoriza o arquivo.
+- Foi adicionada a resolução centralizada `resolveBackendAssetUrl` para
+  transformar referências relativas da API em URLs do backend usando
+  `VITE_API_BASE_URL`/`API_BASE_URL`. A Sidebar recebe a URL resolvida e não
+  contém host hardcoded. A API continua persistindo referência pública
+  relativa, separada do caminho físico local.
+- PNG, JPEG e WEBP são os únicos formatos aceitos. O limite bruto permanece
+  em 2 MB. O conteúdo é aberto e verificado antes de ser persistido; arquivos
+  corrompidos, MIME/formato incompatível e payloads acima do limite retornam
+  erro controlado, preservando a logo anterior.
+- Logos rasterizadas são normalizadas sem upscale, com limite de 1024 px por
+  lado, preservando proporção e usando `contain` no container existente da
+  Sidebar. PNG/WebP preservam transparência; JPEG é convertido para RGB quando
+  necessário; orientação EXIF de JPEG é normalizada. Há limite adicional de
+  25 milhões de pixels para proteção contra decompression bombs, com resposta
+  controlada. Nomes físicos continuam sendo UUIDs e a extensão corresponde ao
+  formato salvo.
+- A troca segue a ordem validar/processar/salvar arquivo novo/atualizar
+  configuração/confirmar/remover arquivo anterior. Restaurar padrão remove a
+  referência customizada e retorna ao fallback. Não há bytes de imagem na
+  tabela de aparência, base64 persistido ou migration nova.
+- Os testes backend cobrem upload PNG, dimensões 3000×3000, horizontal,
+  vertical, imagem pequena sem upscale, transparência, EXIF, MIME genérico,
+  corrupção, MIME/formato inválido, excesso de bytes, URL pública, troca,
+  restauração e OpenAPI multipart. A suíte PostgreSQL sequencial passou duas
+  vezes com `83 passed, 17 warnings` em cada execução.
+- A validação manual confirmou upload pela interface, preview/feedback de
+  sucesso, URL no backend, `GET` da imagem com `200 image/png`, persistência
+  após reload, substituição e restauração. A URL resolveu para o backend em
+  `1440 × 900`, `1024 × 768` e `390 × 844`; o console não apresentou erros.
+- A validação frontend passou lint, typecheck, `74 passed` e build. Ruff
+  passou. A dependência explícita adicionada foi Pillow para validação e
+  normalização raster, além de `python-multipart` para o contrato de upload.
+  Campos Personalizados e o Editor Visual não foram alterados além da
+  continuação da exibição correta da logo; nenhum commit ou push foi feito.

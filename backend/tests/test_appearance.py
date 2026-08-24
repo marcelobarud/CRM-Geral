@@ -1,11 +1,38 @@
+from io import BytesIO
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 import app.api.appearance as appearance_api
 from app.db.session import get_db_session
 from app.main import app
+
+
+def configure_logo_storage(tmp_path: Path, monkeypatch) -> Path:
+    storage_root = tmp_path / "storage"
+    logo_storage = storage_root / "branding"
+    logo_storage.mkdir(parents=True)
+    monkeypatch.setattr(appearance_api, "LOGO_STORAGE_DIR", logo_storage)
+    upload_mount = next(
+        route for route in app.routes if getattr(route, "path", None) == "/uploads"
+    )
+    monkeypatch.setattr(upload_mount.app, "directory", str(storage_root))
+    monkeypatch.setattr(upload_mount.app, "all_directories", [str(storage_root)])
+    return logo_storage
+
+
+def upload_logo(
+    client: TestClient,
+    body: bytes,
+    content_type: str,
+    filename: str = "logo",
+):
+    return client.put(
+        "/api/settings/appearance/logo",
+        files={"file": (filename, body, content_type)},
+    )
 
 
 @pytest.fixture
@@ -48,6 +75,13 @@ def test_appearance_can_be_read_updated_and_restored(client: TestClient) -> None
     assert read_after_restore.status_code == 200
     assert read_after_restore.json()["nome_sistema"] == "CRM Geral"
     assert read_after_restore.json()["rotulo_clientes"] == "Clientes"
+
+
+def test_appearance_logo_openapi_describes_multipart_upload(client: TestClient) -> None:
+    schema = client.get("/openapi.json").json()["paths"][
+        "/api/settings/appearance/logo"
+    ]["put"]
+    assert "multipart/form-data" in schema["requestBody"]["content"]
 
 
 def test_page_appearance_inherits_overrides_and_can_be_reset(
@@ -188,20 +222,94 @@ def test_appearance_logo_accepts_supported_image_and_rejects_invalid_content(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(appearance_api, "LOGO_STORAGE_DIR", tmp_path)
-    valid_logo = client.put(
-        "/api/settings/appearance/logo",
-        content=b"\x89PNG\r\n\x1a\nminimal",
-        headers={"Content-Type": "image/png"},
-    )
+    logo_storage = configure_logo_storage(tmp_path, monkeypatch)
+
+    image = Image.new("RGBA", (200, 80), (72, 122, 152, 180))
+    image_body = BytesIO()
+    image.save(image_body, format="PNG")
+    valid_logo = upload_logo(client, image_body.getvalue(), "image/png")
     assert valid_logo.status_code == 200
     logo_url = valid_logo.json()["logo_url"]
     assert logo_url.startswith("/uploads/branding/")
-    assert (tmp_path / Path(logo_url).name).exists()
+    stored_logo = logo_storage / Path(logo_url).name
+    assert stored_logo.exists()
+    with Image.open(stored_logo) as stored_image:
+        assert stored_image.size == (200, 80)
+        assert stored_image.mode == "RGBA"
+    public_logo = client.get(logo_url)
+    assert public_logo.status_code == 200
+    assert public_logo.headers["content-type"].startswith("image/png")
+    assert public_logo.content == stored_logo.read_bytes()
 
-    invalid_logo = client.put(
-        "/api/settings/appearance/logo",
-        content=b"<svg></svg>",
-        headers={"Content-Type": "image/svg+xml"},
+    generic_content_type = upload_logo(
+        client,
+        image_body.getvalue(),
+        "application/octet-stream",
+        filename="logo.png",
     )
+    assert generic_content_type.status_code == 200
+
+    invalid_logo = upload_logo(client, b"<svg></svg>", "image/svg+xml")
     assert invalid_logo.status_code == 415
+
+
+def test_appearance_logo_normalizes_dimensions_without_upscale(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    logo_storage = configure_logo_storage(tmp_path, monkeypatch)
+
+    cases = [
+        ("PNG", (3000, 3000), (1024, 1024), "image/png"),
+        ("PNG", (2000, 300), (1024, 154), "image/png"),
+        ("JPEG", (500, 2000), (256, 1024), "image/jpeg"),
+        ("PNG", (200, 80), (200, 80), "image/png"),
+    ]
+    for image_format, size, expected_size, content_type in cases:
+        mode = "RGB" if image_format == "JPEG" else "RGBA"
+        color = (72, 122, 152, 180) if mode == "RGBA" else (72, 122, 152)
+        image = Image.new(mode, size, color)
+        image_body = BytesIO()
+        image.save(image_body, format=image_format)
+        response = upload_logo(client, image_body.getvalue(), content_type)
+        assert response.status_code == 200
+        logo_path = logo_storage / Path(response.json()["logo_url"]).name
+        with Image.open(logo_path) as stored_image:
+            assert stored_image.size == expected_size
+
+
+def test_appearance_logo_normalizes_jpeg_orientation_and_preserves_previous_on_error(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    logo_storage = configure_logo_storage(tmp_path, monkeypatch)
+
+    image = Image.new("RGB", (2, 3), (72, 122, 152))
+    exif = Image.Exif()
+    exif[274] = 6
+    image_body = BytesIO()
+    image.save(image_body, format="JPEG", exif=exif)
+    uploaded = upload_logo(client, image_body.getvalue(), "image/jpeg")
+    assert uploaded.status_code == 200
+    logo_url = uploaded.json()["logo_url"]
+    with Image.open(logo_storage / Path(logo_url).name) as stored_image:
+        assert stored_image.size == (3, 2)
+
+    corrupt = upload_logo(client, b"\xff\xd8\xffcorrupt", "image/jpeg")
+    assert corrupt.status_code == 415
+    assert client.get("/api/settings/appearance").json()["logo_url"] == logo_url
+
+    too_large = upload_logo(
+        client,
+        b"\x89PNG\r\n\x1a\n" + b"x" * appearance_api.MAX_LOGO_BYTES,
+        "image/png",
+    )
+    assert too_large.status_code == 413
+    assert client.get("/api/settings/appearance").json()["logo_url"] == logo_url
+
+    restored = client.post("/api/settings/appearance/reset")
+    assert restored.status_code == 200
+    assert restored.json()["logo_url"] is None
+    assert not (logo_storage / Path(logo_url).name).exists()

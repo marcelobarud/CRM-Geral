@@ -2,7 +2,13 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError, getApiErrorMessage, request } from './httpClient'
+import {
+  API_BASE_URL,
+  ApiError,
+  getApiErrorMessage,
+  request,
+  resolveBackendAssetUrl,
+} from './httpClient'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -39,5 +45,23 @@ describe('cliente HTTP', () => {
     expect(getApiErrorMessage(error, 'fallback')).toBe(
       'Não foi possível conectar ao backend.',
     )
+  })
+})
+
+describe('recursos públicos do backend', () => {
+  it('resolve caminhos relativos da API no host do backend', () => {
+    expect(resolveBackendAssetUrl('/uploads/branding/logo.png')).toBe(
+      `${API_BASE_URL}/uploads/branding/logo.png`,
+    )
+    expect(resolveBackendAssetUrl('uploads/branding/logo.png')).toBe(
+      `${API_BASE_URL}/uploads/branding/logo.png`,
+    )
+  })
+
+  it('preserva URLs absolutas e o fallback vazio', () => {
+    expect(resolveBackendAssetUrl('https://cdn.example.com/logo.png')).toBe(
+      'https://cdn.example.com/logo.png',
+    )
+    expect(resolveBackendAssetUrl(null)).toBeNull()
   })
 })

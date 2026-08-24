@@ -22,10 +22,20 @@ export function resetAppearance(): Promise<AppearanceConfig> {
 }
 
 export function uploadAppearanceLogo(file: File): Promise<AppearanceConfig> {
+  const inferredType = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+  }[file.name.slice(file.name.lastIndexOf('.')).toLowerCase()]
+  const uploadFile = file.type || !inferredType
+    ? file
+    : new File([file], file.name, { type: inferredType })
+  const formData = new FormData()
+  formData.append('file', uploadFile)
   return request<AppearanceConfig>('/api/settings/appearance/logo', {
     method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file,
+    body: formData,
   })
 }
 
